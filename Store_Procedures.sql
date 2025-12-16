@@ -88,26 +88,25 @@ BEGIN
 END
 GO
 -- ======================================================
--- Procedure 1.1: Login students
+-- Procedure 1.1: Login 
 -- ======================================================
 CREATE PROCEDURE sp_KullaniciGirisBilgi
     @Email NVARCHAR(100)
 AS
 BEGIN
-    SET NOCOUNT ON;
-
-    -- We select only what is needed for the API to verify the user
     SELECT 
-        KullaniciID,
-        RolID,
-        Ad,
-        Soyad,
-        Email,
-        Sifre -- We need this to verify the hash!
-    FROM Kullanici
-    WHERE Email = @Email;
+        K.KullaniciID,
+        K.Ad,
+        K.Soyad,
+        K.Email,
+        K.Sifre,
+        K.RolID,    
+        R.RolAdi,    -- Add this (Required for Token Security)
+        K.SeviyeID
+    FROM Kullanici K
+    INNER JOIN Rol R ON K.RolID = R.RolID
+    WHERE K.Email = @Email;
 END
-GO
 
 -- =====================================================
 -- Procedure 2: Start Exam (Fair Distribution Algorithm)

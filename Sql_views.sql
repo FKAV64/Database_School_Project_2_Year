@@ -84,11 +84,11 @@ GO
 -- 3. EXAM STATISTICAL REPORTS
 -- Purpose: School analytics
 -- =============================================
-use TestBankasi;
-go
+GO
 CREATE VIEW View_DetayliPerformans AS
 SELECT
     KR.KurumAdi,
+    ES.SeviyeID,
     ES.SeviyeAdi,
     T.KullaniciID,
     Kullanici.Ad + ' ' + Kullanici.Soyad AS OgrenciIsim,
@@ -121,6 +121,7 @@ FROM KullaniciTestSoru KTS
     LEFT JOIN SoruSecenek SS ON KTS.SecenekID = SS.SecenekID
 GROUP BY
     KR.KurumAdi,
+    ES.SeviyeID,
     ES.SeviyeAdi,
     T.KullaniciID, 
     Kullanici.Ad, 
@@ -141,11 +142,13 @@ SELECT * FROM View_OturumOzet
 SELECT * FROM View_DetayliAnaliz
 
 select * from View_DetayliPerformans
+USE TestBankasi;
+GO
 --Most preferred topics
-SELECT KonuAdi,SUM(ToplamSoru) As YapilanSayisi
+SELECT KonuAdi,COUNT(*) AS OgrenciSayisi
 FROM View_DetayliPerformans
 GROUP BY KonuAdi
-ORDER BY YapilanSayisi DESC
+ORDER BY OgrenciSayisi DESC
 
 --Highest scoring topics
 SELECT KonuAdi, CAST(AVG(BasariYuzdesi*1.00) AS DECIMAL(5,2)) AS BasariOrani 
@@ -153,12 +156,9 @@ FROM View_DetayliPerformans
 GROUP BY KonuAdi
 ORDER BY BasariOrani DESC
 
-USE TestBankasi;
-GO
 --Highest scoring student per subjects
-SELECT KurumAdi,SeviyeAdi,OgrenciIsim,DersAdi,ZorlukAdi, CAST(AVG(BasariYuzdesi*1.00) AS DECIMAL(5,2)) AS BasariOrani 
+SELECT KullaniciID,OgrenciIsim,KurumAdi,SeviyeAdi,DersAdi, CAST(AVG(BasariYuzdesi*1.00) AS DECIMAL(5,2)) AS BasariOrani 
 FROM View_DetayliPerformans
-WHERE ZorlukAdi = 'Zor'
-GROUP BY KurumAdi,SeviyeAdi,DersAdi,OgrenciIsim,ZorlukAdi
+GROUP BY KurumAdi,SeviyeAdi,DersAdi,KullaniciID, OgrenciIsim
 ORDER BY BasariOrani DESC
 
