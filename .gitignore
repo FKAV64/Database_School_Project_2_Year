@@ -5,4 +5,4 @@ bin/
 obj/
 *.user
 *.suo
-/wwwroot/lib/
+wwwroot/lib/
