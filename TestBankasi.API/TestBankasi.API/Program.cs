@@ -50,6 +50,20 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+// ==============================================================================
+// ALLOW FRONTEND (CORS)(Cross-Origin Resource Sharing)
+// ==============================================================================
+// ALLOW FRONTEND (CORS)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactApp",
+        builder =>
+        {
+            builder.WithOrigins("http://localhost:5173") // <--- The URL React will run on
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
+});
 
 // ==============================================================================
 // 3. AUTHENTICATION CONFIGURATION (The Real "Bouncer")
@@ -86,6 +100,11 @@ builder.Services.AddScoped<TestBankasi.API.DataAccess.IAuthRepository, TestBanka
 // This tells the App: "Whenever someone asks for IExamRepository, give them ExamRepository."
 builder.Services.AddScoped<TestBankasi.API.DataAccess.IExamRepository, TestBankasi.API.DataAccess.ExamRepository>();
 
+builder.Services.AddScoped<IExamAnalysisRepository, ExamAnalysisRepository>();
+
+// Register the Question Repository
+builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
+
 // Register the Badge Printer
 builder.Services.AddScoped<ITokenService, TokenService>();
 
@@ -109,6 +128,8 @@ app.UseHttpsRedirection(); // Force http:// to become https://
 app.UseStaticFiles();
 
 app.UseRouting(); // Figure out which Controller the user is asking for
+
+app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
 app.UseAuthorization();

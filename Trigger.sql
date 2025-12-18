@@ -16,9 +16,9 @@ BEGIN
         WHERE t.BitisZaman IS NOT NULL
     )
     BEGIN
-        -- If we found a match, the exam is over. BLOCK IT.
-        RAISERROR (N'Hata: Bu sınav tamamlanmıştır. Cevap değiştirilemez.', 16, 1);
         ROLLBACK TRANSACTION;
+        -- Error Number 51000 = "Time Expired" standard for this app
+        THROW 51000, 'Hata: Bu sınav tamamlanmıştır. Cevap değiştirilemez.', 1;
         RETURN;
     END
 END

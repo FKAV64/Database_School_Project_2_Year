@@ -24,11 +24,13 @@ namespace TestBankasi.API.DataAccess
         {
             // 2. Create "Claims" (The info written ON the badge)
             // We store the ID, Name, and Role inside the token so we don't need to ask the DB later.
+
             var claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.NameId, user.KullaniciID.ToString()), // Stores ID
-                new Claim(JwtRegisteredClaimNames.UniqueName, user.Email),              // Stores Email
-                new Claim("role", user.RolID.ToString())                                // Stores Role (1=Admin, 3=Student)
+                new Claim(ClaimTypes.NameIdentifier, user.KullaniciID.ToString()), // Stores ID
+                new Claim(ClaimTypes.Name, user.Email),              // Stores Email
+                new Claim(ClaimTypes.Role, user.RolAdi),           // Stores Role names (Admin, Ogrenci,Ogretmen)
+                new Claim("SeviyeID", user.SeviyeID.ToString())
             };
 
             // 3. Create the Credentials (The Signature)

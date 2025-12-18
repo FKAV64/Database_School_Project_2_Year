@@ -16,28 +16,28 @@ namespace TestBankasi.API.DataAccess
             _context = context;
         }
 
-        public async Task<List<ExamQuestionDTO>> StartExamAsync(int userId, int lessonId, int questionCount, int duration,List<string> topics = null,int? difficultyLevel = null)
+        public async Task<List<ExamQuestionDTO>> StartExamAsync(int KullaniciId, int DersId, int SoruSayisi, int SureDakika,List<string> Konular = null,int? ZorlukId = null)
         {
             // PART A: Create the Exam Session (INSERT)
             var procedureName = "sp_BaslatSinav";
             var parameters = new DynamicParameters();
-            parameters.Add("KullaniciID", userId);
-            parameters.Add("DersID", lessonId);
+            parameters.Add("KullaniciID", KullaniciId);
+            parameters.Add("DersID", DersId);
 
             // Hardcoded to NULL for now (General Exam logic)
-            // Later we will let the user choose specific topics
+            // Later we will let the user choose specific Konular
 
             // LOGIC: Convert List<string> to "1,2,3" string for SQL
             // If list is null or empty, send NULL to SQL (which means "All Topics")
             // Null means the object doesn't exist in memory, Empty means the list was created with an empty value that why we use .Any()
-            string topicListString = (topics != null && topics.Any())
-                                     ? string.Join(",", topics)
+            string topicListString = (Konular != null && Konular.Any())
+                                     ? string.Join(",", Konular)
                                      : null;
             parameters.Add("KonuListesi", topicListString);
-            parameters.Add("ZorlukID", difficultyLevel);
+            parameters.Add("ZorlukID", ZorlukId);
 
-            parameters.Add("SoruSayisi", questionCount);
-            parameters.Add("SureDakika", duration);
+            parameters.Add("SoruSayisi", SoruSayisi);
+            parameters.Add("SureDakika", SureDakika);
 
             int examSessionId;
 

@@ -35,11 +35,11 @@ namespace TestBankasi.API.Controllers
                 // 2. Call the Engine
                 var examQuestions = await _examRepository.StartExamAsync(
                     userId,
-                    request.LessonId,
-                    request.QuestionCount,
-                    request.DurationMinutes,
-                    request.Topics,
-                    request.DifficultyLevel
+                    request.DersID,
+                    request.SoruSayisi,
+                    request.SureDakika,
+                    request.Konular,
+                    request.ZorlukID
                 );
 
                 // 3. Return the Menu (List of Questions with Options)
@@ -52,34 +52,69 @@ namespace TestBankasi.API.Controllers
             }
         }
         [Authorize]
-        [HttpPost("submit")] //POST - Create New Resource
+        [HttpPost("submit")]
         public async Task<IActionResult> SubmitExam([FromBody] SubmitExamDTO submission)
         {
             try
             {
-                // 1. Get User ID (The "Who are you?" check)
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-                if (userIdClaim == null) return Unauthorized();
-                int userId = int.Parse(userIdClaim.Value);
-
-                // 2. Validate Input
-                if (submission == null || submission.Cevaplar == null || !submission.Cevaplar.Any())
+                // 1. BASIC VALIDATION (Protect against nulls)
+                if (submission == null || submission.Cevaplar == null)
                 {
-                    return BadRequest("Gönderilen sınav verisi boş olamaz.");
+                    return BadRequest("Geçersiz veri.");
                 }
 
-                // 3. Call Repository with UserID
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+
+                // 2. REPOSITORY CALL
+                // If OturumID is wrong/belongs to someone else, this throws UnauthorizedAccessException
                 var result = await _examRepository.SubmitExamAsync(submission, userId);
 
                 return Ok(result);
             }
-            catch (UnauthorizedAccessException ex) // Catch the specific security error
+            // -------------------------------------------------------------
+            // CATCH 1: LOGIC ERRORS (Repo threw this explicitly)
+            // -------------------------------------------------------------
+            catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(ex.Message); // Return 401 to the user
+                // CASE: Frontend sent Wrong OturumID or OturumID belonging to another user
+                return Unauthorized(new { Error = "Yetkisiz Erişim", Message = ex.Message });
             }
+            // -------------------------------------------------------------
+            // CATCH 2: DATABASE ERRORS (SQL threw this)
+            // -------------------------------------------------------------
+            catch (Microsoft.Data.SqlClient.SqlException ex)
+            {
+                // CASE: Time is Up (We threw THROW 51000 in Trigger)
+                if (ex.Number == 51000)
+                {
+                    return StatusCode(409, new { Error = "Süre Doldu", Message = "Sınav süresi bitti." });
+                }
+
+                // CASE: Invalid IDs (Foreign Key Violation)
+                // Error 547 = "The INSERT statement conflicted with the FOREIGN KEY constraint"
+                // This happens if Frontend sends a SoruID or SecenekID that doesn't exist in DB.
+                if (ex.Number == 547)
+                {
+                    return BadRequest(new { Error = "Geçersiz Veri", Message = "Gönderilen Soru veya Seçenek ID'si hatalı." });
+                }
+
+                // CASE: Custom Logic from sp_CevapKaydet (RAISERROR 16)
+                // If sp_CevapKaydet says "This question does not belong to this exam"
+                // Standard RAISERROR (Severity 16) usually shows up as Error Number 50000
+                if (ex.Number == 50000)
+                {
+                    return BadRequest(new { Error = "Veri Hatası", Message = ex.Message });
+                }
+
+                // CASE: Real Crash (Connection failed, Syntax error, etc.)
+                return StatusCode(500, $"Veritabanı Hatası (Kod {ex.Number}): {ex.Message}");
+            }
+            // -------------------------------------------------------------
+            // CATCH 3: SERVER CRASHES (NullReference, FormatException, etc.)
+            // -------------------------------------------------------------
             catch (Exception ex)
             {
-                return StatusCode(500, $"Hata: {ex.Message}");
+                return StatusCode(500, $"Sunucu Hatası: {ex.Message}");
             }
         }
         [HttpGet("my-history")] // GET - Read/Retrieve Data

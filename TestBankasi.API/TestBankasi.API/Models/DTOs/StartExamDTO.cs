@@ -3,12 +3,12 @@ namespace TestBankasi.API.Models.DTOs
 {
     public class StartExamDTO
     {
-        public int LessonId { get; set; }
-        public int QuestionCount { get; set; }
-        public int DurationMinutes { get; set; }
+        public int DersID { get; set; }
+        public int SoruSayisi { get; set; }
+        public int SureDakika { get; set; }
 
         // Optional filters (Nullable because the user might want a "General Exam")
-        public List<string>? Topics { get; set; }
-        public int? DifficultyLevel { get; set; }
+        public List<string>? Konular { get; set; }
+        public int? ZorlukID { get; set; }
     }
 }
