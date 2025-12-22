@@ -17,6 +17,28 @@ namespace TestBankasi.API.Controllers
         {
             _examRepository = examRepository;
         }
+        // TestBankasi.API/Controllers/ExamController.cs
+
+        [Authorize]
+        [HttpGet("lessons")]
+        public async Task<IActionResult> GetLessons()
+        {
+            var seviyeClaim = User.FindFirst("SeviyeID");
+            if (seviyeClaim == null) return BadRequest("Seviye ID bulunamadı.");
+
+            int seviyeId = int.Parse(seviyeClaim.Value);
+            var lessons = await _examRepository.GetLessonsByLevelAsync(seviyeId);
+
+            return Ok(lessons);
+        }
+
+        [Authorize]
+        [HttpGet("topics/{dersId}")]
+        public async Task<IActionResult> GetTopics(int dersId)
+        {
+            var topics = await _examRepository.GetTopicsByLessonAsync(dersId);
+            return Ok(topics);
+        }
 
         [Authorize] // <--- SECURITY: Only logged-in users allowed
         [HttpPost("start")]
@@ -133,18 +155,30 @@ namespace TestBankasi.API.Controllers
             return Ok(history);
         }
 
-        [HttpGet("review/{oturumId}")]
+        [HttpGet("result-summary/{oturumId}")]
         [Authorize]
-        public async Task<IActionResult> GetExamReview(int oturumId)
+        public async Task<IActionResult> GetExamReviewAsync(int oturumId)
+        {
+            // 1. EXTRACT ID FROM TOKEN (Security Best Practice)
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim == null) return Unauthorized();
+
+            var summary = await _examRepository.GetExamReviewAsync(oturumId);
+
+            if (summary == null) return NotFound("Exam session not found.");
+
+            return Ok(summary);
+        }
+        [Authorize]
+        [HttpGet("review-details/{oturumId}")]
+        public async Task<IActionResult> GetReviewDetails(int oturumId)
         {
             // 1. EXTRACT ID (Ideally, you should use this to check ownership)
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
             if (userIdClaim == null) return Unauthorized();
-
             // 2. FETCH DATA
-            var reviewData = await _examRepository.GetExamReviewAsync(oturumId);
-
-            return Ok(reviewData);
+            var data = await _examRepository.GetReviewDetailsAsync(oturumId);
+            return Ok(data);
         }
     }
 }

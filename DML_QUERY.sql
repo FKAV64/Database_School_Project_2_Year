@@ -27,7 +27,10 @@ INSERT INTO EgitimSeviye (KurumID, SeviyeAdi, SeviyeSira) VALUES
 -- LEVEL 2: Lessons & Topics
 -- =============================================
 -- Insert Math for 9. Sinif (Assuming ID 1)
-INSERT INTO Ders (SeviyeID, DersAdi) VALUES (1, 'Matematik');
+INSERT INTO Ders (SeviyeID, DersAdi) VALUES
+(1, 'Matematik'),
+(3,'Elektrik'),
+(1,'Genel Bilgi');
 
 -- Insert Topics for Math (Assuming DersID 1)
 INSERT INTO Konu (DersID, KonuAdi) VALUES 

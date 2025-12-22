@@ -7,6 +7,6 @@
         public string ZorlukAdi { get; set; }
         public int ToplamSoru { get; set; }
         public int DogruSayisi { get; set; }
-        public decimal BasariYuzdesi { get; set; } // Use decimal for precision
+        //public decimal BasariYuzdesi { get; set; } // Use decimal for precision
     }
 }

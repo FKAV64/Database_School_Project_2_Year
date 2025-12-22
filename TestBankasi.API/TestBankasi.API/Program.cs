@@ -124,7 +124,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection(); // Force http:// to become https://
+//app.UseHttpsRedirection(); // Force http:// to become https://
 app.UseStaticFiles();
 
 app.UseRouting(); // Figure out which Controller the user is asking for

@@ -16,6 +16,29 @@ namespace TestBankasi.API.DataAccess
             _context = context;
         }
 
+        public async Task<IEnumerable<LessonDTO>> GetLessonsByLevelAsync(int seviyeId)
+        {
+            using (var connection = _context.CreateConnection())
+            {
+                return await connection.QueryAsync<LessonDTO>(
+                    "sp_DersleriGetir", // Name of your new SP
+                    new { SeviyeID = seviyeId },
+                    commandType: CommandType.StoredProcedure // <--- Strict Mode
+                );
+            }
+        }
+
+        public async Task<IEnumerable<TopicDTO>> GetTopicsByLessonAsync(int dersId)
+        {
+            using (var connection = _context.CreateConnection())
+            {
+                return await connection.QueryAsync<TopicDTO>(
+                    "sp_KonulariGetir",
+                    new { DersID = dersId },
+                    commandType: CommandType.StoredProcedure
+                );
+            }
+        }
         public async Task<List<ExamQuestionDTO>> StartExamAsync(int KullaniciId, int DersId, int SoruSayisi, int SureDakika,List<string> Konular = null,int? ZorlukId = null)
         {
             // PART A: Create the Exam Session (INSERT)
@@ -50,7 +73,7 @@ namespace TestBankasi.API.DataAccess
                     commandType: CommandType.StoredProcedure
                 );
 
-                // PART B: Fetch the Questions (SELECT + JOIN)
+                // PART B: Fetches the Questions 
                 var sql = "sp_OturumSorulariniGetir";
                 var getParams = new DynamicParameters();
                 getParams.Add("OturumID", examSessionId);
@@ -160,13 +183,54 @@ namespace TestBankasi.API.DataAccess
             }
         }
 
-        public async Task<IEnumerable<ExamReviewDTO>> GetExamReviewAsync(int oturumId)
+        public async Task<ExamReviewDTO>GetExamReviewAsync(int oturumId)
         {
-            var query = "SELECT * FROM View_DetayliAnaliz WHERE OturumID = @OturumID ORDER BY SoruSira ASC";
+            var query = @"
+                SELECT 
+                    OturumID,
+                    DersAdi,
+                    Puan,
+                    BaslaZaman,
+                    BitirZaman,
+                    SureDakika
+                FROM View_OturumOzet WHERE OturumID = @OturumID";
 
             using (var connection = _context.CreateConnection())
             {
-                return await connection.QueryAsync<ExamReviewDTO>(query, new { OturumID = oturumId });
+                // QueryAsync returns an Array while QuerySingleOrDefaultAsync will return an object
+                return await connection.QuerySingleOrDefaultAsync<ExamReviewDTO>(query, new { OturumID = oturumId });
+            }
+        }
+        public async Task<IEnumerable<ReviewQuestionDTO>> GetReviewDetailsAsync(int oturumId)
+        {
+            var procedure = "sp_ReviewExam";
+            var dictionary = new Dictionary<int, ReviewQuestionDTO>();
+
+            using (var connection = _context.CreateConnection())
+            {
+                // Multi-Mapping: Question + Option -> Question
+                var list = await connection.QueryAsync<ReviewQuestionDTO, ReviewOptionDTO, ReviewQuestionDTO>(
+                    procedure,
+                    (question, option) =>
+                    {
+                        // 1. Check if we already have this Question in our dictionary
+                        if (!dictionary.TryGetValue(question.SoruID, out var entry))
+                        {
+                            entry = question;
+                            entry.Secenekler = new List<ReviewOptionDTO>();
+                            dictionary.Add(entry.SoruID, entry);
+                        }
+
+                        // 2. Add the option to the question's list
+                        entry.Secenekler.Add(option);
+                        return entry;
+                    },
+                    new { OturumID = oturumId },
+                    splitOn: "SecenekID", // <--- The column that separates Question data from Option data
+                    commandType: CommandType.StoredProcedure
+                );
+
+                return dictionary.Values.ToList();
             }
         }
     }

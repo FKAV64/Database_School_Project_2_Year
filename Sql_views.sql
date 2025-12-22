@@ -30,12 +30,12 @@ SELECT
     T.SoruSayisi,
     T.Puan,
     CASE 
-        WHEN T.BitisZaman IS NULL THEN 'Aktif'
+        WHEN T.BitirZaman IS NULL THEN 'Aktif'
         ELSE 'Tamamlandi'
     END AS Durum,
     T.Sure AS SureDakika,
     T.BaslaZaman,
-    T.BitisZaman
+    T.BitirZaman
 FROM TestOturum T
     INNER JOIN Kullanici K ON T.KullaniciID = K.KullaniciID
     INNER JOIN Ders D ON T.DersID = D.DersID
@@ -78,17 +78,53 @@ FROM KullaniciTestSoru KTS
     -- JOIN 4: Correct Answer
     LEFT JOIN SoruSecenek SS_Dogru ON S.SoruID = SS_Dogru.SoruID AND SS_Dogru.DogruMu = 1;
 GO
+USE TestBankasi;
+GO
 
+CREATE PROCEDURE sp_ReviewExam
+    @OturumID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        -- Question Info
+        S.SoruID,
+        S.SoruMetin,
+        KTS.SoruSira, -- Maintains the specific order the user saw
+        K.KonuAdi,  
+        Z.ZorlukAdi,
+        
+        -- Option Info
+        SS.SecenekID,
+        SS.SecenekMetin,
+        SS.DogruMu AS IsCorrect, -- Reveals the truth (1 or 0)
+        
+        -- User Interaction
+        CASE 
+            WHEN KTS.SecenekID = SS.SecenekID THEN 1 
+            ELSE 0 
+        END AS IsSelected -- Flags the option the user clicked
+        
+    FROM KullaniciTestSoru KTS
+    INNER JOIN Soru S ON KTS.SoruID = S.SoruID
+    INNER JOIN SoruSecenek SS ON S.SoruID = SS.SoruID
+    INNER JOIN Konu K ON S.KonuID = K.KonuID
+    INNER JOIN ZorlukSeviye Z ON S.ZorlukID = Z.ZorlukID
+    WHERE KTS.OturumID = @OturumID
+    ORDER BY KTS.SoruSira, SS.SecenekID;
+END
+GO
 
 -- =============================================
 -- 3. EXAM STATISTICAL REPORTS
 -- Purpose: School analytics
 -- =============================================
-GO
+use TestBankasi;
+go
 CREATE VIEW View_DetayliPerformans AS
 SELECT
     KR.KurumAdi,
-    ES.SeviyeID,
     ES.SeviyeAdi,
     T.KullaniciID,
     Kullanici.Ad + ' ' + Kullanici.Soyad AS OgrenciIsim,
@@ -121,7 +157,6 @@ FROM KullaniciTestSoru KTS
     LEFT JOIN SoruSecenek SS ON KTS.SecenekID = SS.SecenekID
 GROUP BY
     KR.KurumAdi,
-    ES.SeviyeID,
     ES.SeviyeAdi,
     T.KullaniciID, 
     Kullanici.Ad, 
@@ -142,13 +177,11 @@ SELECT * FROM View_OturumOzet
 SELECT * FROM View_DetayliAnaliz
 
 select * from View_DetayliPerformans
-USE TestBankasi;
-GO
 --Most preferred topics
-SELECT KonuAdi,COUNT(*) AS OgrenciSayisi
+SELECT KonuAdi,SUM(ToplamSoru) As YapilanSayisi
 FROM View_DetayliPerformans
 GROUP BY KonuAdi
-ORDER BY OgrenciSayisi DESC
+ORDER BY YapilanSayisi DESC
 
 --Highest scoring topics
 SELECT KonuAdi, CAST(AVG(BasariYuzdesi*1.00) AS DECIMAL(5,2)) AS BasariOrani 
@@ -156,9 +189,12 @@ FROM View_DetayliPerformans
 GROUP BY KonuAdi
 ORDER BY BasariOrani DESC
 
+USE TestBankasi;
+GO
 --Highest scoring student per subjects
-SELECT KullaniciID,OgrenciIsim,KurumAdi,SeviyeAdi,DersAdi, CAST(AVG(BasariYuzdesi*1.00) AS DECIMAL(5,2)) AS BasariOrani 
+SELECT KurumAdi,SeviyeAdi,OgrenciIsim,DersAdi,ZorlukAdi, CAST(AVG(BasariYuzdesi*1.00) AS DECIMAL(5,2)) AS BasariOrani 
 FROM View_DetayliPerformans
-GROUP BY KurumAdi,SeviyeAdi,DersAdi,KullaniciID, OgrenciIsim
+WHERE ZorlukAdi = 'Zor'
+GROUP BY KurumAdi,SeviyeAdi,DersAdi,OgrenciIsim,ZorlukAdi
 ORDER BY BasariOrani DESC
 

@@ -1,7 +1,7 @@
 ﻿USE TestBankasi;
 GO
 -- =====================================================
--- 0.0 SECURITY GATEKEEPER (MUST RUN FIRST)
+-- 0.0 SECURITY GATEKEEPER
 -- =====================================================
 CREATE PROCEDURE sp_YetkiKontrol
     @KullaniciID INT,
@@ -13,7 +13,7 @@ BEGIN
 
     SELECT @RolID = RolID FROM Kullanici WHERE KullaniciID = @KullaniciID;
 
-    -- CASE 1: Kullanıcı Bulunamadı (User Not Found)
+    /*-- CASE 1: Kullanıcı Bulunamadı (User Not Found)
     IF @RolID IS NULL
     BEGIN
         -- Log the attempt
@@ -23,14 +23,14 @@ BEGIN
         -- Raise Error with Turkish chars (Using N)
         RAISERROR(N'Hata: Kullanıcı bulunamadı.', 16, 1);
         RETURN 0;
-    END
+    END*/
 
     -- CASE 2: Yetkisiz Erişim (Unauthorized)
     IF @RolID NOT IN (1, 2)
     BEGIN
-        -- Log the crime
+        /*-- Log the crime
         INSERT INTO GuvenlikLog (KullaniciID, Islem, Aciklama)
-        VALUES (@KullaniciID, @IslemAdi, N'YETKİSİZ ERİŞİM: Öğrenci sisteme yazmayı denedi.');
+        VALUES (@KullaniciID, @IslemAdi, N'YETKİSİZ ERİŞİM: Öğrenci sisteme yazmayı denedi.');*/
 
         -- Block the user
         RAISERROR(N'Yetkisiz işlem: Bu olay güvenlik birimine raporlandı.', 16, 1);
@@ -88,26 +88,58 @@ BEGIN
 END
 GO
 -- ======================================================
--- Procedure 1.1: Login 
+-- Procedure 1.1: Login students
 -- ======================================================
 CREATE PROCEDURE sp_KullaniciGirisBilgi
     @Email NVARCHAR(100)
 AS
 BEGIN
-    SELECT 
-        K.KullaniciID,
-        K.Ad,
-        K.Soyad,
-        K.Email,
-        K.Sifre,
-        K.RolID,    
-        R.RolAdi,    -- Add this (Required for Token Security)
-        K.SeviyeID
-    FROM Kullanici K
-    INNER JOIN Rol R ON K.RolID = R.RolID
-    WHERE K.Email = @Email;
-END
+    SET NOCOUNT ON;
 
+    -- We select only what is needed for the API to verify the user
+    SELECT 
+        KullaniciID,
+        RolID,
+        Ad,
+        Soyad,
+        Email,
+        Sifre -- We need this to verify the hash!
+    FROM Kullanici
+    WHERE Email = @Email;
+END
+GO
+-- ======================================================
+-- Procedure  Get all lesson for a particular level
+-- ======================================================
+-- 1. GET LESSONS (For the first dropdown)
+CREATE PROCEDURE sp_DersleriGetir
+    @SeviyeID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT DersID, DersAdi 
+    FROM Ders 
+    WHERE SeviyeID = @SeviyeID 
+      AND SilinmeTarihi IS NULL -- Critical: Don't show deleted lessons
+    ORDER BY DersAdi;
+END
+GO
+
+-- 2. GET TOPICS (For the second dropdown)
+CREATE PROCEDURE sp_KonulariGetir
+    @DersID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT KonuID, KonuAdi 
+    FROM Konu 
+    WHERE DersID = @DersID 
+      AND SilinmeTarihi IS NULL -- Critical
+    ORDER BY KonuAdi;
+END
+GO
 -- =====================================================
 -- Procedure 2: Start Exam (Fair Distribution Algorithm)
 -- =====================================================
@@ -235,8 +267,6 @@ BEGIN
     INNER JOIN SoruSecenek SS ON S.SoruID = SS.SoruID
     WHERE 
         KTS.OturumID = @OturumID
-        AND S.SilinmeTarihi IS NULL      -- Integrity Check
-        AND SS.SilinmeTarihi IS NULL     -- Integrity Check
     ORDER BY 
         KTS.SoruSira ASC, -- Show questions in the random order we generated earlier
         SS.SecenekID ASC; -- Order options consistently
@@ -309,7 +339,7 @@ BEGIN
     UPDATE TestOturum
     SET 
         Puan = @Puan,
-        BitisZaman = GETDATE()
+        BitirZaman = GETDATE()
     WHERE OturumID = @OturumID;
 
     -- 4. Return the Result to the App (So it can show a "Congratulations" screen)
@@ -318,76 +348,169 @@ BEGIN
         @DogruSayisi AS Dogru,
         @ToplamSoru AS Toplam,
         @Puan AS Puan,
-        GETDATE() AS BitisZaman;
+        GETDATE() AS BitirZaman;
 END
 GO
 -- =====================================================
--- Procedure 3: Modifiying a question + Security gateways
+-- Procedure 3: Creating questions
 -- =====================================================
-CREATE PROCEDURE sp_SoruDuzenle
+CREATE PROCEDURE sp_SoruVeSecenekleriEkle
+    @KullaniciID INT,
+    @KonuID INT,
+    @ZorlukID INT,
+    @SoruMetin NVARCHAR(MAX),
+    @SeceneklerJSON NVARCHAR(MAX) -- This holds all options!
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- 1. Security Gatekeeper
+    DECLARE @IsAuthorized INT;
+    EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID, N'Soru Ekleme';
+    IF @IsAuthorized <> 1 RETURN;
+
+    -- 2. VALIDATION BEFORE STARTING (Fail Fast)
+    -- Check if JSON is valid
+    IF ISJSON(@SeceneklerJSON) = 0
+    BEGIN
+        RAISERROR(N'Hata: Geçersiz JSON formatı.', 16, 1);
+        RETURN;
+    END
+
+    -- 3. THE ATOMIC TRANSACTION
+    BEGIN TRANSACTION;
+
+    BEGIN TRY
+        -- A. Insert the Question Header
+        INSERT INTO Soru (KonuID, ZorlukID, SoruMetin)
+        VALUES (@KonuID, @ZorlukID, @SoruMetin);
+
+        DECLARE @YeniSoruID INT = SCOPE_IDENTITY();
+
+        -- B. Insert Options using OPENJSON
+        -- This maps the JSON keys "Icerik" and "DogruMu" to our table columns
+        INSERT INTO SoruSecenek (SoruID, SecenekMetin, DogruMu)
+        SELECT 
+            @YeniSoruID, 
+            SecenekMetin, 
+            DogruMu 
+        FROM OPENJSON(@SeceneklerJSON)
+        WITH (
+            SecenekMetin NVARCHAR(500) '$.SecenekMetin',
+            DogruMu BIT '$.DogruMu'
+        );
+
+        -- C. LOGICAL VALIDATION (The "Business Rules")
+        
+        -- Rule 1: Must have at least 2 options
+        DECLARE @OptionCount INT;
+        SELECT @OptionCount = COUNT(*) FROM SoruSecenek WHERE SoruID = @YeniSoruID;
+        
+        IF @OptionCount < 2
+        BEGIN
+            RAISERROR(N'Hata: Bir soru en az 2 seçeneğe sahip olmalıdır.', 16, 1);
+        END
+
+        -- Rule 2: Must have EXACTLY ONE correct answer
+        DECLARE @CorrectCount INT;
+        SELECT @CorrectCount = COUNT(*) FROM SoruSecenek WHERE SoruID = @YeniSoruID AND DogruMu = 1;
+
+        IF @CorrectCount <> 1
+        BEGIN
+            RAISERROR(N'Hata: Sorunun tam olarak 1 doğru cevabı olmalıdır.', 16, 1);
+        END
+
+        -- If we survived all errors, commit the changes!
+        COMMIT TRANSACTION;
+        
+        -- Return the ID for the frontend
+        SELECT @YeniSoruID AS YeniSoruID;
+
+    END TRY
+    BEGIN CATCH
+        -- If ANY error happened above (SQL error or our RAISERROR), we undo everything.
+        -- The Question will NOT be saved. The Options will NOT be saved. Total cleanup.
+        IF @@TRANCOUNT > 0 -- @@TRANCOUNT returns the number of active "BEGIN TRAN" 
+            ROLLBACK TRANSACTION;
+
+        -- Tell the user what went wrong
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrMsg, 16, 1);
+    END CATCH
+END
+GO
+-- =====================================================
+-- Procedure 4: Modifiying a question + Security gateways
+-- =====================================================
+CREATE PROCEDURE sp_SoruVeSecenekleriGuncelle
     @KullaniciID INT,
     @SoruID INT,
-    @YeniMetin NVARCHAR(500),
-    @YeniZorlukID INT
+    @YeniMetin NVARCHAR(MAX),
+    @YeniZorlukID INT,
+    @SeceneklerJSON NVARCHAR(MAX) -- format: [{"SecenekID":1, "SecenekMetin":"...", "DogruMu":1}, ...]
 AS
 BEGIN
     SET NOCOUNT ON;
-    --Security check
+
+    -- 1. Security Check
     DECLARE @IsAuthorized INT;
     EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID, N'Soru Düzenleme';
-    -- If NOT 1 (meaning 0), we stop.
     IF @IsAuthorized <> 1 RETURN;
 
-    --If the question begin modified and at the same being deleted(Archived) by another teacher/Adim
-    IF NOT EXISTS(SELECT 1 FROM Soru WHERE SoruID = @SoruID AND SilinmeTarihi IS NULL)
+    -- 2. Validate JSON
+    IF ISJSON(@SeceneklerJSON) = 0
     BEGIN
-        RAISERROR(N'Soru Bulunamadı', 16,2);
+        RAISERROR(N'Hata: Geçersiz JSON formatı.', 16, 1);
         RETURN;
     END
-    --Execution
-    UPDATE Soru
-    SET SoruMetin = @YeniMetin,
-        ZorlukID = @YeniZorlukID
-    WHERE SoruID = @SoruID;
-END
-GO
 
-CREATE PROCEDURE sp_SecenekDuzenle
-    @KullaniciID INT,
-    @SecenekID INT,
-    @YeniMetin NVARCHAR(500),
-    @DogruMu BIT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    --Security check
-    DECLARE @IsAuthorized INT;
-    EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID, N'Soru Seçeneği Düzenleme';
-    IF @IsAuthorized <> 1 RETURN;
+    -- 3. Start Transaction
+    BEGIN TRANSACTION;
 
-    --Execution
-    --To which question does this option belong to
-    DECLARE @SoruID INT;
-    SELECT @SoruID = SoruID FROM SoruSecenek WHERE SecenekID = @SecenekID;
-    IF @SoruID IS NULL
-    BEGIN
-        RAISERROR(N'Seçenek bulunamadı', 16,2);
-        RETURN;
-    END
-    --If the option is becoming the correct answer
-    IF @DogruMu = 1
-    BEGIN
-        UPDATE SoruSecenek
-        SET DogruMu = 0
-        --Every question has diff SecenekID while all options of the same question have the same SoruID
-        WHERE SoruID = @SoruID; 
-    END
+    BEGIN TRY
+        -- A. Update the Question Header
+        UPDATE Soru
+        SET SoruMetin = @YeniMetin,
+            ZorlukID = @YeniZorlukID
+        WHERE SoruID = @SoruID;
 
-    -- 4. UPDATE THE TARGET OPTION
-    UPDATE SoruSecenek
-    SET SecenekMetin = @YeniMetin,
-        DogruMu = @DogruMu
-    WHERE SecenekID = @SecenekID;
+        -- B. Update the Options (Bulk Update)
+        -- We join the JSON directly to the Table to update matches
+        UPDATE SS
+        SET 
+            SS.SecenekMetin = J.SecenekMetin,
+            SS.DogruMu = J.DogruMu
+        FROM SoruSecenek SS
+        INNER JOIN OPENJSON(@SeceneklerJSON) 
+        WITH (
+            SecenekID INT '$.SecenekID',
+            SecenekMetin NVARCHAR(500) '$.SecenekMetin',
+            DogruMu BIT '$.DogruMu'
+        ) AS J ON SS.SecenekID = J.SecenekID
+        WHERE SS.SoruID = @SoruID; -- Safety: Ensure we only touch options for THIS question
+
+        -- C. Validation: Ensure exactly ONE correct answer exists
+        DECLARE @CorrectCount INT;
+        SELECT @CorrectCount = COUNT(*) 
+        FROM SoruSecenek 
+        WHERE SoruID = @SoruID AND DogruMu = 1 
+          AND SilinmeTarihi IS NULL; -- Ignore deleted options
+
+        IF @CorrectCount <> 1
+        BEGIN
+            RAISERROR(N'Hata: Güncelleme sonrası sorunun tam olarak 1 doğru cevabı olmalıdır.', 16, 1);
+        END
+
+        -- If logic passes, save it.
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        -- If anything failed, undo updates to Header AND Options.
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrMsg, 16, 1);
+    END CATCH
 END
 GO
 

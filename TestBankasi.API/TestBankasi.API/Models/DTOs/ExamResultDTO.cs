@@ -8,6 +8,6 @@ namespace TestBankasi.API.Models.DTOs
         public int Dogru { get; set; }
         public int Toplam { get; set; }
         public int Puan { get; set; }
-        public DateTime BitisZaman { get; set; }
+        public DateTime BitirZaman { get; set; }
     }
 }

@@ -20,11 +20,9 @@ namespace TestBankasi.API.DataAccess
                     KonuAdi, 
                     ZorlukAdi, 
                     ToplamSoru, 
-                    DogruSayisi, 
-                    BasariYuzdesi 
+                    DogruSayisi
                 FROM View_DetayliPerformans 
-                WHERE KullaniciID = @Uid
-                ORDER BY BasariYuzdesi,DersAdi, KonuAdi";
+                WHERE KullaniciID = @Uid";
 
             using (var connection = _context.CreateConnection())
             {

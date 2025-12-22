@@ -125,7 +125,9 @@ CREATE TABLE SoruSecenek(
 -- =============================================
 -- 6. LEVEL 5 TABLES (Exam Headers)
 -- =============================================
-
+/*use TestBankasi;
+go
+EXEC sp_rename 'TestOturum.BitisZaman', 'BitirZaman','COLUMN';*/
 CREATE TABLE TestOturum(
     OturumID INT PRIMARY KEY IDENTITY(1,1),
     KullaniciID INT NOT NULL,
@@ -135,7 +137,7 @@ CREATE TABLE TestOturum(
     SoruSayisi INT,
     Sure INT, -- Duration in minutes
     BaslaZaman DATETIME,
-    BitisZaman DATETIME,
+    BitirZaman DATETIME,
     Puan INT,
     CONSTRAINT FK_Kullanici_TestOturum FOREIGN KEY(KullaniciID)
     REFERENCES Kullanici(KullaniciID) ON DELETE CASCADE,

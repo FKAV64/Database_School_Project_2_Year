@@ -13,6 +13,6 @@
         public string Durum {  get; set; }
         public int SureDakika { get; set; }
         public DateTime BaslaZaman { get; set; }
-        public DateTime BitisZaman { get; set; }
+        public DateTime BitirZaman { get; set; }
     }
 }

@@ -3,6 +3,7 @@ namespace TestBankasi.API.Models.DTOs
 {
     public class ExamQuestionDTO
     {
+        public int OturumID { get; set; }
         public int SoruID { get; set; } // Critical for dictionary lookup
         public int SoruSira { get; set; }
         public string SoruMetin { get; set; }

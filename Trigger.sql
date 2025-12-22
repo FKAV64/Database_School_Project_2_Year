@@ -13,7 +13,7 @@ BEGIN
         SELECT 1 
         FROM inserted i
         INNER JOIN TestOturum t ON i.OturumID = t.OturumID
-        WHERE t.BitisZaman IS NOT NULL
+        WHERE t.BitirZaman IS NOT NULL
     )
     BEGIN
         ROLLBACK TRANSACTION;
