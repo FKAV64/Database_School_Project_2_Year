@@ -20,7 +20,7 @@ const ExamResult = () => {
       } catch (err) {
         console.error(err);
         alert("Error loading result.");
-        navigate("/dashboard");
+        navigate("/student-dashboard");
       } finally {
         setLoading(false);
       }
@@ -100,7 +100,7 @@ const ExamResult = () => {
             </button>
             
             <button 
-                onClick={() => navigate("/dashboard")} 
+                onClick={() => navigate("/student-dashboard")} 
                 style={styles.homeBtn}
             >
                 Back to Dashboard

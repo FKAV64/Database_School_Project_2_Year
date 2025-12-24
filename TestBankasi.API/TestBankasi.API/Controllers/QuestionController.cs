@@ -17,6 +17,37 @@ namespace TestBankasi.API.Controllers
             _questionRepo = questionRepo;
         }
 
+        [HttpGet("list")]
+        [Authorize(Roles = "Admin,Ogretmen")]
+        public async Task<IActionResult> GetQuestions([FromQuery] int dersId, [FromQuery] int? konuId)
+        {
+            // Validation: Teacher must select at least a Lesson
+            if (dersId == 0) return BadRequest("Lütfen bir ders seçiniz.");
+
+            var list = await _questionRepo.GetQuestionsByFilterAsync(dersId, konuId);
+            return Ok(list);
+        }
+
+        [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Ogretmen")]
+        public async Task<IActionResult> GetQuestionDetail(int id)
+        {
+            var question = await _questionRepo.GetQuestionByIdAsync(id);
+
+            if (question == null)
+                return NotFound("Question not found.");
+
+            return Ok(question);
+        }
+
+        [HttpGet("difficultyLevels")]
+        [Authorize] // Any logged-in user can see this list
+        public async Task<IActionResult> GetDifficultyLevels()
+        {
+            var list = await _questionRepo.GetDifficultyLevelsAsync();
+            return Ok(list);
+        }
+
         [HttpPost("add")]
         [Authorize(Roles = "Admin,Ogretmen")] // Only Admin or Teacher can add questions
         public async Task<IActionResult> AddQuestion([FromBody] QuestionCreateDTO questionDto)

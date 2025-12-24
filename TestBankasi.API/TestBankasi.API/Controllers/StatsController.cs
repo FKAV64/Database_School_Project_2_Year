@@ -34,33 +34,33 @@ namespace TestBankasi.API.Controllers
 
         [HttpGet("dashboard/preferred-topics")]
         [Authorize(Roles = "Admin,Ogretmen")]
-        public async Task<IActionResult> GetPreferredTopics()
+        public async Task<IActionResult> GetPreferredTopics([FromQuery] int? dersId)
         {
             // 1 Line validation
             if (CurrentSeviyeID == 0) return Unauthorized("Token geçersiz. Tekrar giriş yapın.");
 
             // Clean call
-            var data = await _analysisRepository.GetMostPreferredTopicsAsync(CurrentSeviyeID);
+            var data = await _analysisRepository.GetMostPreferredTopicsAsync(CurrentSeviyeID, dersId);
             return Ok(data);
         }
 
         [HttpGet("dashboard/high-scores")]
         [Authorize(Roles = "Admin,Ogretmen")]
-        public async Task<IActionResult> GetHighScoringTopics()
+        public async Task<IActionResult> GetHighScoringTopics([FromQuery] int? dersId)
         {
             if (CurrentSeviyeID == 0) return Unauthorized("Token geçersiz. Tekrar giriş yapın.");
 
-            var data = await _analysisRepository.GetHighestScoringTopicsAsync(CurrentSeviyeID);
+            var data = await _analysisRepository.GetHighestScoringTopicsAsync(CurrentSeviyeID, dersId);
             return Ok(data);
         }
 
         [HttpGet("dashboard/top-students")]
         [Authorize(Roles = "Admin,Ogretmen")]
-        public async Task<IActionResult> GetTopStudents()
+        public async Task<IActionResult> GetTopStudents([FromQuery] int? dersId)
         {
             if (CurrentSeviyeID == 0) return Unauthorized("Token geçersiz. Tekrar giriş yapın.");
 
-            var data = await _analysisRepository.GetTopStudentsAsync(CurrentSeviyeID);
+            var data = await _analysisRepository.GetTopStudentsAsync(CurrentSeviyeID, dersId);
             return Ok(data);
         }
         // Helper Property: Extracts seveyiID safely. Returns 0 if missing.

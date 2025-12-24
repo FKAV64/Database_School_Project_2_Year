@@ -2,8 +2,13 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar"; // Import our new brick
 import Footer from "./components/Footer"; // Import our new brick
+import Register from "./pages/Register";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
+import TeacherDashboard from "./pages/TeacherDashboard";
+import QuestionBank from "./pages/QuestionBank";
+import QuestionEditor from "./pages/QuestionEditor";
+import TeacherStats from "./pages/TeacherStats";
+import StudentDashboard from "./pages/StudentDashboard";
 import StartExam from "./pages/StartExam";
 import ExamRoom from "./pages/ExamRoom";
 import ExamResult from "./pages/ExamResult";
@@ -37,14 +42,24 @@ function App() {
             <Route path="/" element={
                <div style={{ textAlign: "center" }}>
                  <h1>Welcome to the Exam System</h1>
-                 <p>Select "Login" to begin your test.</p>
+                 <p>Select "Login" to begin</p>
                </div>
             } />
+            <Route path="/register" element={<Register />} />
 
             {/* When URL is "/login", show the Login Page (We will build this next) */}
             <Route path="/login" element={<Login />} />
 
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/teacher-dashboard" element={<TeacherDashboard />} />
+
+            <Route path="/manage-questions" element={<QuestionBank />} />
+
+            {/* The ":id" part tells React "capture whatever is here and call it 'id'"*/}
+            <Route path="/edit-question/:id" element={<QuestionEditor />} />
+
+            <Route path="/teacher-stats" element={<TeacherStats />} />
+
+            <Route path="/student-dashboard" element={<StudentDashboard />} />
 
             <Route path="/start-exam" element={<StartExam />} />
 

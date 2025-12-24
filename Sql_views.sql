@@ -5,12 +5,12 @@ GO
 -- corresponing institution
 -- =============================================
 CREATE VIEW View_EgitimSeviyeleri AS
-SELECT 
+SELECT
+    K.KurumID,
     ES.SeviyeID, 
     K.KurumAdi, 
-    ES.SeviyeAdi,
-    K.KurumID,      -- Useful for sorting
-    ES.SeviyeSira   -- Useful for sorting
+    ES.SeviyeAdi,  
+    ES.SeviyeSira  
 FROM EgitimSeviye ES
 INNER JOIN Kurum K ON ES.KurumID = K.KurumID;
 GO
@@ -78,56 +78,19 @@ FROM KullaniciTestSoru KTS
     -- JOIN 4: Correct Answer
     LEFT JOIN SoruSecenek SS_Dogru ON S.SoruID = SS_Dogru.SoruID AND SS_Dogru.DogruMu = 1;
 GO
-USE TestBankasi;
-GO
-
-CREATE PROCEDURE sp_ReviewExam
-    @OturumID INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    SELECT 
-        -- Question Info
-        S.SoruID,
-        S.SoruMetin,
-        KTS.SoruSira, -- Maintains the specific order the user saw
-        K.KonuAdi,  
-        Z.ZorlukAdi,
-        
-        -- Option Info
-        SS.SecenekID,
-        SS.SecenekMetin,
-        SS.DogruMu AS IsCorrect, -- Reveals the truth (1 or 0)
-        
-        -- User Interaction
-        CASE 
-            WHEN KTS.SecenekID = SS.SecenekID THEN 1 
-            ELSE 0 
-        END AS IsSelected -- Flags the option the user clicked
-        
-    FROM KullaniciTestSoru KTS
-    INNER JOIN Soru S ON KTS.SoruID = S.SoruID
-    INNER JOIN SoruSecenek SS ON S.SoruID = SS.SoruID
-    INNER JOIN Konu K ON S.KonuID = K.KonuID
-    INNER JOIN ZorlukSeviye Z ON S.ZorlukID = Z.ZorlukID
-    WHERE KTS.OturumID = @OturumID
-    ORDER BY KTS.SoruSira, SS.SecenekID;
-END
-GO
 
 -- =============================================
 -- 3. EXAM STATISTICAL REPORTS
 -- Purpose: School analytics
 -- =============================================
-use TestBankasi;
-go
 CREATE VIEW View_DetayliPerformans AS
 SELECT
     KR.KurumAdi,
+    ES.SeviyeID,
     ES.SeviyeAdi,
     T.KullaniciID,
     Kullanici.Ad + ' ' + Kullanici.Soyad AS OgrenciIsim,
+    D.DersID,
     D.DersAdi,
     K.KonuAdi, 
     Z.ZorlukAdi,
@@ -157,10 +120,12 @@ FROM KullaniciTestSoru KTS
     LEFT JOIN SoruSecenek SS ON KTS.SecenekID = SS.SecenekID
 GROUP BY
     KR.KurumAdi,
+    ES.SeviyeID,
     ES.SeviyeAdi,
     T.KullaniciID, 
     Kullanici.Ad, 
     Kullanici.Soyad,
+    D.DersID,
     D.DersAdi,
     K.KonuAdi,
     Z.ZorlukAdi;

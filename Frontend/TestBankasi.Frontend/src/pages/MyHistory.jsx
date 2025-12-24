@@ -136,7 +136,7 @@ const MyHistory = () => {
           </table>
         )}
 
-        <button onClick={() => navigate("/dashboard")} style={styles.backBtn}>Back to Dashboard</button>
+        <button onClick={() => navigate("/student-dashboard")} style={styles.backBtn}>Back to Dashboard</button>
       </div>
   );
 };

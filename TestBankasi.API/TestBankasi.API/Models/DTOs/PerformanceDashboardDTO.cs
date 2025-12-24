@@ -19,9 +19,7 @@
     {
         public int KullaniciID { get; set; }
         public string OgrenciIsim { get; set; }
-        public string KurumAdi { get; set; }
-        public string SeviyeAdi { get; set; }
-        public string DersAdi { get; set; }
+        public string? DersAdi { get; set; }
         public decimal BasariOrani { get; set; }
     }
 }

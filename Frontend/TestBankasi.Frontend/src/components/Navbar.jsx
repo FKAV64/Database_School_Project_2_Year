@@ -7,9 +7,22 @@ import { Link, useNavigate } from "react-router-dom";
 // The name 'Navbar' must be Capitalized (React rule).
 const Navbar = () => {
   const navigate = useNavigate();
-  
+  const token = localStorage.getItem("token");
   // Check if user is logged in
-  const isLoggedIn = !!localStorage.getItem("token"); // "!!" converts string to boolean (true/false)
+  const isLoggedIn = !!token; // "!!" converts string to boolean (true/false)
+  // CALCULATE DASHBOARD LINK
+  let dashboardLink = "/student-dashboard"; // Default
+  if (token) {
+      try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const role = payload["role"] || payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
+          if (role === "Ogretmen" || role === "Admin") {
+              dashboardLink = "/teacher-dashboard";
+          }
+      } catch (e) {
+          console.error("Token decode error", e);
+      }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -40,7 +53,7 @@ const Navbar = () => {
         {/* CONDITIONAL RENDERING */}
         {isLoggedIn ? (
           <>
-            <li><Link to="/dashboard" style={styles.link}>Dashboard</Link></li>
+           <li><Link to={dashboardLink} style={styles.link}>Dashboard</Link></li>
             <li><button onClick={handleLogout} style={styles.logoutLink}>Logout</button></li>
           </>
         ) : (

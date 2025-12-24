@@ -21,7 +21,7 @@ const ExamRoom = () => {
   useEffect(() => {
     if (!examData || examData.length === 0) {
       alert("No exam data found. Redirecting to dashboard.");
-      navigate("/dashboard");
+      navigate("/student-dashboard");
       return;
     }
     //console.log("DEBUG: Exam Data Structure:", examData[0]);
@@ -93,7 +93,7 @@ const ExamRoom = () => {
             headers: { Authorization: `Bearer ${token}` }
         });
 
-        alert("Exam Submitted Successfully!");
+        //alert("Exam Submitted Successfully!");
         navigate("/exam-result/" + payload.OturumID)
 
     } catch (err) {

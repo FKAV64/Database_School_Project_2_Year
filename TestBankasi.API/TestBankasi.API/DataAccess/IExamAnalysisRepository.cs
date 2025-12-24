@@ -8,8 +8,8 @@ namespace TestBankasi.API.DataAccess
         Task<IEnumerable<StudentPerformanceDTO>> GetStudentPerformanceAsync(int kullaniciId);
 
         // Teacher's overview (Admin/Teacher only)
-        Task<IEnumerable<TopicPreferenceDTO>> GetMostPreferredTopicsAsync(int seviyeId);
-        Task<IEnumerable<TopicSuccessDTO>> GetHighestScoringTopicsAsync(int seviyeId);
-        Task<IEnumerable<TopStudentDTO>> GetTopStudentsAsync(int seviyeId);
+        Task<IEnumerable<TopicPreferenceDTO>> GetMostPreferredTopicsAsync(int seviyeId, int? dersId = null);
+        Task<IEnumerable<TopicSuccessDTO>> GetHighestScoringTopicsAsync(int seviyeId, int? dersId = null);
+        Task<IEnumerable<TopStudentDTO>> GetTopStudentsAsync(int seviyeId, int? dersId = null);
     }
 }

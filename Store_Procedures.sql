@@ -12,28 +12,11 @@ BEGIN
     DECLARE @RolID INT;
 
     SELECT @RolID = RolID FROM Kullanici WHERE KullaniciID = @KullaniciID;
-
-    /*-- CASE 1: Kullanıcı Bulunamadı (User Not Found)
-    IF @RolID IS NULL
-    BEGIN
-        -- Log the attempt
-        INSERT INTO GuvenlikLog (KullaniciID, Islem, Aciklama)
-        VALUES (@KullaniciID, @IslemAdi, N'Geçersiz Kullanıcı ID ile erişim denemesi.');
-        
-        -- Raise Error with Turkish chars (Using N)
-        RAISERROR(N'Hata: Kullanıcı bulunamadı.', 16, 1);
-        RETURN 0;
-    END*/
-
-    -- CASE 2: Yetkisiz Erişim (Unauthorized)
+    --Yetkisiz Erişim (Unauthorized)
     IF @RolID NOT IN (1, 2)
     BEGIN
-        /*-- Log the crime
-        INSERT INTO GuvenlikLog (KullaniciID, Islem, Aciklama)
-        VALUES (@KullaniciID, @IslemAdi, N'YETKİSİZ ERİŞİM: Öğrenci sisteme yazmayı denedi.');*/
-
         -- Block the user
-        RAISERROR(N'Yetkisiz işlem: Bu olay güvenlik birimine raporlandı.', 16, 1);
+        RAISERROR(N'Yetkisiz işlem', 16, 1);
         RETURN 0;
     END
 
@@ -88,7 +71,7 @@ BEGIN
 END
 GO
 -- ======================================================
--- Procedure 1.1: Login students
+-- Procedure 0.2: Login students
 -- ======================================================
 CREATE PROCEDURE sp_KullaniciGirisBilgi
     @Email NVARCHAR(100)
@@ -96,22 +79,24 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- We select only what is needed for the API to verify the user
     SELECT 
-        KullaniciID,
-        RolID,
-        Ad,
-        Soyad,
-        Email,
-        Sifre -- We need this to verify the hash!
-    FROM Kullanici
-    WHERE Email = @Email;
+        K.KullaniciID,
+        K.RolID,
+        R.RolAdi, -- FIX 1: Prevents the 500 Crash (TokenService needs this)
+        K.Ad,
+        K.Soyad,
+        K.Email,
+        K.Sifre,
+        K.SeviyeID -- FIX 2: Prevents Empty Dropdowns (ExamController needs this)
+    FROM Kullanici K
+    INNER JOIN Rol R ON K.RolID = R.RolID
+    WHERE K.Email = @Email;
 END
 GO
 -- ======================================================
--- Procedure  Get all lesson for a particular level
+-- Procedure 1.0 Get all lesson for a particular level
 -- ======================================================
--- 1. GET LESSONS (For the first dropdown)
+-- 1. GET LESSONS (For the lesson drop down of the teacher-dashboard page)
 CREATE PROCEDURE sp_DersleriGetir
     @SeviyeID INT
 AS
@@ -238,7 +223,7 @@ BEGIN  -- Start of code block
 END
 GO
 -- =====================================================
--- Procedure 2.1: Return selected questions to the API
+-- Procedure 2.1: Return randomly selected questions to the API
 -- =====================================================
 --Here we get the text questions and sents it to the API
 CREATE PROCEDURE sp_OturumSorulariniGetir
@@ -352,7 +337,65 @@ BEGIN
 END
 GO
 -- =====================================================
--- Procedure 3: Creating questions
+-- Procedure 3: Returns all the questions under a 
+-- particular lesson and/or topic
+-- =====================================================
+CREATE PROCEDURE sp_SorulariListele
+    @DersID INT,          -- Mandatory: Teacher MUST select a lesson first
+    @KonuID INT = NULL    -- Optional: If NULL, show all topics in that lesson
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        S.SoruID,
+        S.SoruMetin,
+        K.KonuAdi,
+        Z.ZorlukAdi,
+        S.SilinmeTarihi
+    FROM Soru S
+    INNER JOIN Konu K ON S.KonuID = K.KonuID
+    INNER JOIN ZorlukSeviye Z ON S.ZorlukID = Z.ZorlukID
+    WHERE 
+        K.DersID = @DersID -- Filter by Lesson
+        AND (@KonuID IS NULL OR S.KonuID = @KonuID) -- Filter by Topic (if selected)
+    ORDER BY S.SoruID DESC;
+END
+GO
+
+CREATE PROCEDURE sp_SoruDetayGetir
+    @SoruID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        S.SoruID, 
+        S.SoruMetin, 
+        S.KonuID, 
+        K.DersID, -- Critical: We need this to select the right Lesson in the dropdown
+        S.ZorlukID,
+        
+        -- Options columns (The "Many" side)
+        SS.SecenekID, 
+        SS.SecenekMetin, 
+        SS.DogruMu
+    FROM Soru S
+    INNER JOIN Konu K ON S.KonuID = K.KonuID -- Join to get the Lesson ID
+    INNER JOIN SoruSecenek SS ON S.SoruID = SS.SoruID
+    WHERE S.SoruID = @SoruID;
+END
+GO
+
+CREATE PROCEDURE sp_ZorlukSeviyeleriGetir
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT ZorlukID, ZorlukAdi FROM ZorlukSeviye;
+END
+GO
+-- =====================================================
+-- Procedure 4: Creating questions
 -- =====================================================
 CREATE PROCEDURE sp_SoruVeSecenekleriEkle
     @KullaniciID INT,
@@ -501,6 +544,38 @@ BEGIN
             RAISERROR(N'Hata: Güncelleme sonrası sorunun tam olarak 1 doğru cevabı olmalıdır.', 16, 1);
         END
 
+        -- ==================================================================================
+        -- D. THE RIPPLE EFFECT (Auto-Regrading)
+        -- This logic hunts down old exams and fixes their scores based on the new "Truth"
+   
+        ;WITH EtkilenenSinavlar AS (
+            -- 1. Find all exams that contain THIS question
+            SELECT DISTINCT OturumID 
+            FROM KullaniciTestSoru 
+            WHERE SoruID = @SoruID
+        ),
+        YeniPuanlar AS (
+            -- 2. Recalculate scores for those exams using the NEW option statuses
+            SELECT 
+                KTS.OturumID,
+                -- Count total questions in that exam
+                COUNT(KTS.SoruID) AS TotalQuestions,
+                -- Count correct answers (using the updated SoruSecenek table)
+                SUM(CASE WHEN SS.DogruMu = 1 THEN 1 ELSE 0 END) AS CorrectCount
+            FROM KullaniciTestSoru KTS
+            INNER JOIN EtkilenenSinavlar EtS ON KTS.OturumID = EtS.OturumID -- Only look at affected exams
+            INNER JOIN SoruSecenek SS ON KTS.SecenekID = SS.SecenekID -- Join to see if chosen option is NOW correct
+            GROUP BY KTS.OturumID
+        )
+        -- 3. Apply the update to the Cache (TestOturum Table)
+        UPDATE T
+        SET T.Puan = CASE 
+                        WHEN YP.TotalQuestions = 0 THEN 0 
+                        ELSE (YP.CorrectCount * 100) / YP.TotalQuestions 
+                     END
+        FROM TestOturum T
+        INNER JOIN YeniPuanlar YP ON T.OturumID = YP.OturumID;
+        -- ==================================================================================
         -- If logic passes, save it.
         COMMIT TRANSACTION;
     END TRY
@@ -581,4 +656,42 @@ BEGIN
             RAISERROR(N'Bilgi: Bu soru zaten aktif (silinmemiş).', 16, 1);
     END
 END
+
+
+
+CREATE PROCEDURE sp_ReviewExam
+    @OturumID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        -- Question Info
+        S.SoruID,
+        S.SoruMetin,
+        KTS.SoruSira, -- Maintains the specific order the user saw
+        K.KonuAdi,  
+        Z.ZorlukAdi,
+        
+        -- Option Info
+        SS.SecenekID,
+        SS.SecenekMetin,
+        SS.DogruMu AS IsCorrect, -- Reveals the truth (1 or 0)
+        
+        -- User Interaction
+        CASE 
+            WHEN KTS.SecenekID = SS.SecenekID THEN 1 
+            ELSE 0 
+        END AS IsSelected -- Flags the option the user clicked
+        
+    FROM KullaniciTestSoru KTS
+    INNER JOIN Soru S ON KTS.SoruID = S.SoruID
+    INNER JOIN SoruSecenek SS ON S.SoruID = SS.SoruID
+    INNER JOIN Konu K ON S.KonuID = K.KonuID
+    INNER JOIN ZorlukSeviye Z ON S.ZorlukID = Z.ZorlukID
+    WHERE KTS.OturumID = @OturumID
+    ORDER BY KTS.SoruSira, SS.SecenekID;
+END
+GO
+
     

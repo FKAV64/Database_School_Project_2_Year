@@ -31,16 +31,27 @@ const Login = () => {
         Email: email,
         Sifre: password,
       });
+      // We define 'token' here so we can use it immediately
+      const token = response.data.token;
+      localStorage.setItem("token", token);
 
-      // IF SUCCESS (Code 200):
-      //console.log("Login Success:", response.data);
-      
-      // Save the JWT Token in the browser's local storage (like a cookie but easier)
-      localStorage.setItem("token", response.data.token);
+      // 3. DECODE & DISPATCH (Nested inside Success Block)
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const role = payload["role"] || payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
 
-      // Redirect to Dashboard 
-      navigate("/dashboard");
-      alert("Welcome back!");
+        if (role === "Ogretmen" || role === "Admin") {
+            navigate("/teacher-dashboard");
+        } else {
+            navigate("/student-dashboard");
+        }
+        
+        //alert("Welcome back!");
+
+      } catch (decodeError) {
+        console.error("Token Decode Error:", decodeError);
+        setError("Invalid email or password.");
+      }
 
     } catch (err) {
       // IF FAILURE (Code 401, 500, etc):
@@ -48,7 +59,6 @@ const Login = () => {
       setError("Invalid email or password.");
     }
   };
-
   return (
     <div style={styles.container}>
       <div style={styles.card}>
@@ -88,6 +98,17 @@ const Login = () => {
 
           <button type="submit" style={styles.button}>Login</button>
         </form>
+        {/* Register Button */}
+        <div style={{marginTop: "1rem", textAlign: "center"}}>
+          <p>Don't have an account?</p>
+          <button 
+              type="button" // Important: type="button" prevents form submission
+              onClick={() => navigate("/register")}
+              style={{...styles.button, backgroundColor: "#7f8c8d"}}
+          >
+              Register New Student
+          </button>
+        </div>
       </div>
     </div>
   );

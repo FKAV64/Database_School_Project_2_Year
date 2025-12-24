@@ -57,6 +57,7 @@ namespace TestBankasi.API.DataAccess
             var query = @"
             SELECT 
                SeviyeID, 
+               KurumID,
                KurumAdi, 
                SeviyeAdi 
             FROM View_EgitimSeviyeleri

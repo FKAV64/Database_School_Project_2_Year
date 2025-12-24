@@ -21,7 +21,7 @@ namespace TestBankasi.API.DataAccess
             using (var connection = _context.CreateConnection())
             {
                 return await connection.QueryAsync<LessonDTO>(
-                    "sp_DersleriGetir", // Name of your new SP
+                    "sp_DersleriGetir", 
                     new { SeviyeID = seviyeId },
                     commandType: CommandType.StoredProcedure // <--- Strict Mode
                 );

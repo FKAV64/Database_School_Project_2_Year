@@ -13,7 +13,60 @@ namespace TestBankasi.API.DataAccess
         {
             _context = context;
         }
+        public async Task<IEnumerable<QuestionListDTO>> GetQuestionsByFilterAsync(int dersId, int? konuId)
+        {
+            using (var connection = _context.CreateConnection())
+            {
+                return await connection.QueryAsync<QuestionListDTO>(
+                    "sp_SorulariListele",
+                    new { DersID = dersId, KonuID = konuId }, // Pass params
+                    commandType: CommandType.StoredProcedure
+                );
+            }
+        }
 
+        public async Task<QuestionDetailDTO> GetQuestionByIdAsync(int id)
+        {
+            // Dictionary is needed because Dapper returns 1 row per Option (4 rows total)
+            // We want to collapse them into 1 Question object with a list of 4 options.
+            var dictionary = new Dictionary<int, QuestionDetailDTO>();
+
+            using (var connection = _context.CreateConnection())
+            {
+                var list = await connection.QueryAsync<QuestionDetailDTO, OptionDetailDTO, QuestionDetailDTO>(
+                    "sp_SoruDetayGetir",
+                    (question, option) =>
+                    {
+                        if (!dictionary.TryGetValue(question.SoruID, out var entry))
+                        {
+                            entry = question;
+                            entry.Secenekler = new List<OptionDetailDTO>();
+                            dictionary.Add(entry.SoruID, entry);
+                        }
+
+                        // Add the option to the list
+                        entry.Secenekler.Add(option);
+                        return entry;
+                    },
+                    new { SoruID = id },
+                    splitOn: "SecenekID", // Tells Dapper where the Option columns start
+                    commandType: CommandType.StoredProcedure
+                );
+
+                return dictionary.Values.FirstOrDefault();
+            }
+        }
+
+        public async Task<IEnumerable<DifficultyLevelsDTO>> GetDifficultyLevelsAsync()
+        {
+            using (var connection = _context.CreateConnection())
+            {
+                return await connection.QueryAsync<DifficultyLevelsDTO>(
+                    "sp_ZorlukSeviyeleriGetir",
+                    commandType: CommandType.StoredProcedure
+                );
+            }
+        }
         public async Task<int> AddQuestionAsync(QuestionCreateDTO questionDto, int userId)
         {
             var procedureName = "sp_SoruVeSecenekleriEkle";
