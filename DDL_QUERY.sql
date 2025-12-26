@@ -22,15 +22,6 @@ CREATE TABLE ZorlukSeviye(
     ZorlukAdi NVARCHAR(20)
 );
 
-CREATE TABLE GuvenlikLog (
-    LogID INT PRIMARY KEY IDENTITY(1,1),
-    -- NO FOREIGN KEY HERE! 
-    -- We want to record deleted users and fake IDs too.
-    KullaniciID INT, 
-    Islem NVARCHAR(50),
-    Tarih DATETIME DEFAULT GETDATE(),
-    Aciklama NVARCHAR(500)
-);
 
 -- =============================================
 -- 2. LEVEL 1 TABLES
@@ -125,9 +116,6 @@ CREATE TABLE SoruSecenek(
 -- =============================================
 -- 6. LEVEL 5 TABLES (Exam Headers)
 -- =============================================
-/*use TestBankasi;
-go
-EXEC sp_rename 'TestOturum.BitisZaman', 'BitirZaman','COLUMN';*/
 CREATE TABLE TestOturum(
     OturumID INT PRIMARY KEY IDENTITY(1,1),
     KullaniciID INT NOT NULL,

@@ -13,7 +13,7 @@ const ExamReview = () => {
       try {
         const token = localStorage.getItem("token");
         // Ensure Port 5143 (HTTP)
-        const response = await axios.get(`http://localhost:5143/api/Exam/review-details/${oturumId}`, {
+        const response = await axios.get(`https://localhost:7125/api/Exam/review-details/${oturumId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setQuestions(response.data);
@@ -40,9 +40,9 @@ const ExamReview = () => {
       {questions.map((q, index) => {
         // --- THE TRAFFIC LIGHT LOGIC ---
         // 1. Find what the user picked (if any)
-        const userSelection = q.secenekler.find(o => o.isSelected);
+        const userSelection = q.secenekler.find(o => o.verilenCevap);
         // 2. Was that selection correct?
-        const isCorrect = userSelection && userSelection.isCorrect;
+        const isCorrect = userSelection && userSelection.dogruMu;
         
         // 3. Determine Card Border Color
         let borderColor = "#f1c40f"; // Default: Yellow (Unanswered)
@@ -96,8 +96,8 @@ const ExamReview = () => {
                     {opt.secenekMetin}
                     
                     {/* Visual Markers */}
-                    {opt.isSelected && <span style={{marginLeft:"10px"}}>📍 (You)</span>}
-                    {opt.isCorrect && <span style={{marginLeft:"10px"}}>✅</span>}
+                    {opt.verilenCevap && <span style={{marginLeft:"10px"}}>📍 (You)</span>}
+                    {opt.dogruMu && <span style={{marginLeft:"10px"}}>✅</span>}
                   </div>
                 );
               })}

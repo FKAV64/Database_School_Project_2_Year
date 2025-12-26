@@ -23,7 +23,7 @@ const QuestionBank = () => {
       try {
         const token = localStorage.getItem("token");
         // Reuse the endpoint we made for students (it works for teachers too!)
-        const response = await axios.get("http://localhost:5143/api/exam/lessons", {
+        const response = await axios.get("https://localhost:7125/api/exam/lessons", {
             headers: { Authorization: `Bearer ${token}` }
         });
         setLessons(response.data);
@@ -49,7 +49,7 @@ const QuestionBank = () => {
           const token = localStorage.getItem("token");
           
           // A. Fetch Topics for this Lesson
-          const topicRes = await axios.get(`http://localhost:5143/api/exam/topics/${lessonId}`, {
+          const topicRes = await axios.get(`https://localhost:7125/api/exam/topics/${lessonId}`, {
               headers: { Authorization: `Bearer ${token}` }
           });
           setTopics(topicRes.data);
@@ -83,7 +83,7 @@ const QuestionBank = () => {
           const token = localStorage.getItem("token");
           
           // Build Query String: ?dersId=1&konuId=5
-          let url = `http://localhost:5143/api/question/list?dersId=${lessonId}`;
+          let url = `https://localhost:7125/api/question/list?dersId=${lessonId}`;
           if (topicId) url += `&konuId=${topicId}`;
 
           const response = await axios.get(url, {
@@ -102,7 +102,7 @@ const QuestionBank = () => {
       if(!window.confirm("Delete this question?")) return;
       try {
         const token = localStorage.getItem("token");
-        await axios.delete(`http://localhost:5143/api/question/delete/${id}`, {
+        await axios.delete(`https://localhost:7125/api/question/delete/${id}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         // Optimistic UI Update (Remove from list without reload)
@@ -115,7 +115,7 @@ const QuestionBank = () => {
   const handleRestore = async (id) => {
       try {
         const token = localStorage.getItem("token");
-        await axios.patch(`http://localhost:5143/api/question/restore/${id}`, {}, {
+        await axios.patch(`https://localhost:7125/api/question/restore/${id}`, {}, {
             headers: { Authorization: `Bearer ${token}` }
         });
         setQuestions(prev => prev.map(q => q.soruID === id ? {...q, silinmeTarihi: null} : q));

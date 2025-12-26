@@ -28,7 +28,7 @@ const Register = () => {
         // NOTE: This is an open endpoint (no token needed usually, but check your AuthController)
         // If your GetEducationLevels requires [Authorize], you might need to allow Anonymous access in Controller
         // For now, let's assume it allows anonymous or we handle it.
-        const response = await axios.get("http://localhost:5143/api/auth/education-levels");
+        const response = await axios.get("https://localhost:7125/api/auth/education-levels");
         
         const data = response.data;
         setFullList(data);
@@ -88,7 +88,7 @@ const Register = () => {
     };
 
     try {
-        await axios.post("http://localhost:5143/api/auth/register", payload);
+        await axios.post("https://localhost:7125/api/auth/register", payload);
         alert("Registration Successful! Please Login.");
         navigate("/login");
     } catch (err) {

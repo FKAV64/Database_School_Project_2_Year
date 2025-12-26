@@ -1,7 +1,7 @@
 ﻿USE TestBankasi;
 GO
 -- =============================================
--- 0. Returns educational levels with their
+-- 1. Returns educational levels with their
 -- corresponing institution
 -- =============================================
 CREATE VIEW View_EgitimSeviyeleri AS
@@ -16,7 +16,7 @@ INNER JOIN Kurum K ON ES.KurumID = K.KurumID;
 GO
 
 -- =============================================
--- 1. EXAM HISTORY DATABOARD
+-- 2. EXAM HISTORY DATABOARD
 -- Purpose: Filterable list of exams for the student UI.
 -- =============================================
 CREATE VIEW View_OturumOzet AS
@@ -43,41 +43,6 @@ FROM TestOturum T
     LEFT JOIN ZorlukSeviye Z ON T.ZorlukID = Z.ZorlukID;
 GO
 
--- =============================================
--- 2. EXAM DETAIL REPORTS
--- Purpose: Shows questions, user answers, AND corrects answers. Includes Topic/Difficulty context.
--- =============================================
-CREATE VIEW View_DetayliAnaliz AS
-SELECT 
-    KTS.OturumID,
-    KTS.SoruID,
-    KTS.SoruSira,
-    K.KonuAdi,
-    Z.ZorlukAdi,
-    S.SoruMetin,
-    ISNULL(SS_User.SecenekMetin, N'(Boş Bırakıldı)') AS VerilenCevap, -- Handles skipped questions
-    CASE 
-        WHEN SS_User.DogruMu = 1 THEN 'Dogru'
-        WHEN SS_User.DogruMu = 0 THEN N'Yanlış'
-        ELSE N'Boş' 
-    END AS Sonuc,
-    SS_Dogru.SecenekMetin AS DogruCevapMetin
-FROM KullaniciTestSoru KTS
-    INNER JOIN Soru S ON KTS.SoruID = S.SoruID
-    
-    -- JOIN 1: Get the Topic (Via Soru)
-    INNER JOIN Konu K ON S.KonuID = K.KonuID 
-    
-    -- JOIN 2: Get the Difficulty (Via Soru)
-    INNER JOIN ZorlukSeviye Z ON S.ZorlukID = Z.ZorlukID
-    
-    -- JOIN 3: User's Answer
-     -- We use LEFT JOIN here because SecenekID might be NULL (Skipped Question)
-    LEFT JOIN SoruSecenek SS_User ON KTS.SecenekID = SS_User.SecenekID
-    
-    -- JOIN 4: Correct Answer
-    LEFT JOIN SoruSecenek SS_Dogru ON S.SoruID = SS_Dogru.SoruID AND SS_Dogru.DogruMu = 1;
-GO
 
 -- =============================================
 -- 3. EXAM STATISTICAL REPORTS
@@ -90,6 +55,7 @@ SELECT
     ES.SeviyeAdi,
     T.KullaniciID,
     Kullanici.Ad + ' ' + Kullanici.Soyad AS OgrenciIsim,
+    T.OturumID,
     D.DersID,
     D.DersAdi,
     K.KonuAdi, 
@@ -125,41 +91,11 @@ GROUP BY
     T.KullaniciID, 
     Kullanici.Ad, 
     Kullanici.Soyad,
+    T.OturumID,
     D.DersID,
     D.DersAdi,
     K.KonuAdi,
     Z.ZorlukAdi;
 GO
 
--- =============================================
--- 4. Sample test
--- =============================================
-USE TestBankasi;
-GO
---Track their results
-SELECT * FROM View_OturumOzet
---Track detail results
-SELECT * FROM View_DetayliAnaliz
-
-select * from View_DetayliPerformans
---Most preferred topics
-SELECT KonuAdi,SUM(ToplamSoru) As YapilanSayisi
-FROM View_DetayliPerformans
-GROUP BY KonuAdi
-ORDER BY YapilanSayisi DESC
-
---Highest scoring topics
-SELECT KonuAdi, CAST(AVG(BasariYuzdesi*1.00) AS DECIMAL(5,2)) AS BasariOrani 
-FROM View_DetayliPerformans
-GROUP BY KonuAdi
-ORDER BY BasariOrani DESC
-
-USE TestBankasi;
-GO
---Highest scoring student per subjects
-SELECT KurumAdi,SeviyeAdi,OgrenciIsim,DersAdi,ZorlukAdi, CAST(AVG(BasariYuzdesi*1.00) AS DECIMAL(5,2)) AS BasariOrani 
-FROM View_DetayliPerformans
-WHERE ZorlukAdi = 'Zor'
-GROUP BY KurumAdi,SeviyeAdi,DersAdi,OgrenciIsim,ZorlukAdi
-ORDER BY BasariOrani DESC
 

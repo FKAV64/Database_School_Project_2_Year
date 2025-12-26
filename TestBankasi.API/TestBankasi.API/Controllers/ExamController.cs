@@ -17,15 +17,14 @@ namespace TestBankasi.API.Controllers
         {
             _examRepository = examRepository;
         }
-        // TestBankasi.API/Controllers/ExamController.cs
 
-        [Authorize]
+        [Authorize] // <--- SECURITY: Only logged-in users allowed
         [HttpGet("lessons")]
         public async Task<IActionResult> GetLessons()
         {
             var seviyeClaim = User.FindFirst("SeviyeID");
             if (seviyeClaim == null) return BadRequest("Seviye ID bulunamadı.");
-
+            //Here we are retrieving the user's level from his token 
             int seviyeId = int.Parse(seviyeClaim.Value);
             var lessons = await _examRepository.GetLessonsByLevelAsync(seviyeId);
 
@@ -40,8 +39,9 @@ namespace TestBankasi.API.Controllers
             return Ok(topics);
         }
 
-        [Authorize] // <--- SECURITY: Only logged-in users allowed
+        [Authorize] 
         [HttpPost("start")]
+        //[FromBody] activates the JSON Deserializer to convert that raw JSON text(sent by the frontend) into your C# StartExamDTO object.
         public async Task<IActionResult> StartExam([FromBody] StartExamDTO request)
         {
             try
@@ -64,7 +64,7 @@ namespace TestBankasi.API.Controllers
                     request.ZorlukID
                 );
 
-                // 3. Return the Menu (List of Questions with Options)
+                // 3. Returns List of Questions with Options
                 return Ok(examQuestions); // HTTP Status Code: 200 (Success)
             }
             catch (Exception ex)

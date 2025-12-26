@@ -24,6 +24,7 @@ namespace TestBankasi.API.Controllers
         // =================================================================
         // HTTP POST method because we are SENDING data to create a resource
         [HttpPost("register")] // URL: localhost/api/auth/register
+        // IActionResult means this function can return any type ok, unauthorized
         public async Task<IActionResult> Register(UserRegisterDTO userDTO)
         {
             try
@@ -73,15 +74,7 @@ namespace TestBankasi.API.Controllers
 
             return Ok(new { Token = tokenString, Message = "Login Successful" });
         }
-        // =================================================================
-        // THE LOGGED IN (Test Endpoint)
-        // =================================================================
-        [Microsoft.AspNetCore.Authorization.Authorize] // <--- THE LOCK
-        [HttpGet("test-security")]
-        public IActionResult TestSecurity()
-        {
-            return Ok("You have entered the VIP zone! The Bouncer likes your token.");
-        }
+        
         [HttpGet("education-levels")]
         public async Task<IActionResult> GetEducationLevels()
         {

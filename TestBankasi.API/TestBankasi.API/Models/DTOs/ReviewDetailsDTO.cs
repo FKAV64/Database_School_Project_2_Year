@@ -15,7 +15,7 @@
     {
         public int SecenekID { get; set; }
         public string SecenekMetin { get; set; }
-        public bool IsCorrect { get; set; }  // "The Truth"
-        public bool IsSelected { get; set; } // "The User's Choice"
+        public bool DogruMu { get; set; }  // "The Truth"
+        public bool VerilenCevap { get; set; } // "The User's Choice"
     }
 }

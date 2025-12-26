@@ -14,7 +14,7 @@ const MyPerformance = () => {
       try {
         const token = localStorage.getItem("token");
         // Ensure this matches your actual endpoint URL
-        const response = await axios.get("http://localhost:5143/api/stats/my-performance", {
+        const response = await axios.get("https://localhost:7125/api/stats/my-performance", {
           headers: { Authorization: `Bearer ${token}` }
         });
         setRawData(response.data);
@@ -59,6 +59,7 @@ const MyPerformance = () => {
       // Check casing: backend might send PascalCase (ToplamSoru) or camelCase (toplamSoru)
       const total = item.toplamSoru !== undefined ? item.toplamSoru : (item.ToplamSoru || 0);
       const correct = item.dogruSayisi !== undefined ? item.dogruSayisi : (item.DogruSayisi || 0);
+      const percentage = item.basariYuzdesi !== undefined ? item.basariYuzdesi : (item.BasariYuzdesi || 0);
 
       groups[key].total += total;
       groups[key].correct += correct;

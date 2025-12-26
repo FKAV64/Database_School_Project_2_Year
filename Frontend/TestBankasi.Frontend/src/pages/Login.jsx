@@ -27,7 +27,7 @@ const Login = () => {
       // We are calling the C# Endpoint: [HttpPost("login")]
       // Payload matches UserLoginDTO: { Email: "...", Sifre: "..." }
       // NOTE: Replace '5143' with your actual API port if different!
-      const response = await axios.post("http://localhost:5143/api/auth/login", {
+      const response = await axios.post("https://localhost:7125/api/auth/login", {
         Email: email,
         Sifre: password,
       });

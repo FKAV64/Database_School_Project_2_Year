@@ -39,7 +39,6 @@ namespace TestBankasi.API.Controllers
             // 1 Line validation
             if (CurrentSeviyeID == 0) return Unauthorized("Token geçersiz. Tekrar giriş yapın.");
 
-            // Clean call
             var data = await _analysisRepository.GetMostPreferredTopicsAsync(CurrentSeviyeID, dersId);
             return Ok(data);
         }

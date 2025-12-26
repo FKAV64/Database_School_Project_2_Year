@@ -3,9 +3,10 @@ GO
 -- =====================================================
 -- 0.0 SECURITY GATEKEEPER
 -- =====================================================
+USE TestBankasi;
+GO
 CREATE PROCEDURE sp_YetkiKontrol
-    @KullaniciID INT,
-    @IslemAdi NVARCHAR(50) -- "Soru Silme" etc.
+    @KullaniciID INT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -96,7 +97,7 @@ GO
 -- ======================================================
 -- Procedure 1.0 Get all lesson for a particular level
 -- ======================================================
--- 1. GET LESSONS (For the lesson drop down of the teacher-dashboard page)
+-- 1. GET LESSONS (For the lesson drop down)
 CREATE PROCEDURE sp_DersleriGetir
     @SeviyeID INT
 AS
@@ -121,17 +122,82 @@ BEGIN
     SELECT KonuID, KonuAdi 
     FROM Konu 
     WHERE DersID = @DersID 
-      AND SilinmeTarihi IS NULL -- Critical
+      AND SilinmeTarihi IS NULL -- Critical: Don't show deleted lessons
     ORDER BY KonuAdi;
+END
+GO
+-- ======================================================
+-- Procedure 1.1 Get questions
+-- ======================================================
+
+-- 1. RETURNS ALL THE QUESTIONS UNDER A PARTICULAR LESSON AND/OR TOPIC
+
+CREATE PROCEDURE sp_SorulariListele
+    @DersID INT,          -- Mandatory: Teacher MUST select a lesson first
+    @KonuID INT = NULL    -- Optional: If NULL, show all topics in that lesson
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        S.SoruID,
+        S.SoruMetin,
+        K.KonuAdi,
+        Z.ZorlukAdi,
+        S.SilinmeTarihi
+    FROM Soru S
+    INNER JOIN Konu K ON S.KonuID = K.KonuID
+    INNER JOIN ZorlukSeviye Z ON S.ZorlukID = Z.ZorlukID
+    WHERE 
+        K.DersID = @DersID -- Filter by Lesson
+        AND (@KonuID IS NULL OR S.KonuID = @KonuID) -- Filter by Topic (if selected)
+    ORDER BY S.SoruID DESC;
+END
+GO
+
+-- 2. RETURNS ALL THE QUESTIONS + OPTIONS UNDER A PARTICULAR LESSON
+
+CREATE PROCEDURE sp_SoruDetayGetir
+    @SoruID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        S.SoruID, 
+        S.SoruMetin, 
+        S.KonuID, 
+        K.DersID,
+        S.ZorlukID,
+        
+        -- Options columns (The "Many" side)
+        SS.SecenekID, 
+        SS.SecenekMetin, 
+        SS.DogruMu
+    FROM Soru S
+    INNER JOIN Konu K ON S.KonuID = K.KonuID -- Join to get the Lesson ID
+    INNER JOIN SoruSecenek SS ON S.SoruID = SS.SoruID
+    WHERE S.SoruID = @SoruID;
+END
+GO
+
+CREATE PROCEDURE sp_ZorlukSeviyeleriGetir
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT ZorlukID, ZorlukAdi FROM ZorlukSeviye;
 END
 GO
 -- =====================================================
 -- Procedure 2: Start Exam (Fair Distribution Algorithm)
 -- =====================================================
-CREATE PROCEDURE sp_BaslatSinav
+USE TestBankasi;
+GO
+
+ALTER PROCEDURE sp_BaslatSinav
     @KullaniciID INT,
     @DersID INT,
-    @KonuListesi VARCHAR(MAX) = NULL,
+    @KonuListesi VARCHAR(MAX) = NULL, -- If no value is added the default is null
     @ZorlukID INT = NULL,
     @SoruSayisi INT,
     @SureDakika INT
@@ -139,87 +205,119 @@ AS  -- Start of procedure body
 BEGIN  -- Start of code block
     SET NOCOUNT ON;  -- Don't show "X rows affected" messages
 
-    -- 1. INSTITUTION INTEGRITY CHECK (Your New Rule)
-    DECLARE @UserKurumID INT;
-    DECLARE @DersKurumID INT;
+    -- 1. INSTITUTION INTEGRITY CHECK
 
-    -- Get User's Institution
-    SELECT @UserKurumID = ES.KurumID
-    FROM Kullanici K
-    INNER JOIN EgitimSeviye ES ON K.SeviyeID = ES.SeviyeID
-    WHERE K.KullaniciID = @KullaniciID;
+    DECLARE @UserSeviyeID INT;
+    DECLARE @DersSeviyeID INT;
 
-    -- Get Lesson's Institution
-    SELECT @DersKurumID = ES.KurumID
-    FROM Ders D
-    INNER JOIN EgitimSeviye ES ON D.SeviyeID = ES.SeviyeID
-    WHERE D.DersID = @DersID;
+    -- Get User's exact Level (e.g., 9th Grade)
+    SELECT @UserSeviyeID = SeviyeID
+    FROM Kullanici
+    WHERE KullaniciID = @KullaniciID;
+
+    -- Get Lesson's Level
+    SELECT @DersSeviyeID = SeviyeID
+    FROM Ders
+    WHERE DersID = @DersID;
 
     -- The Logic: 
-    -- If User is University (ID 2), they can take ANY exam in University (Level 1, 2, 3, 4).
-    -- But they CANNOT take an exam in High School (ID 1).
-    IF @UserKurumID <> @DersKurumID
+    -- A student can ONLY take an exam for their specific Level.
+    -- This effectively blocks them from other Institutions AND other Grades.
+    IF @UserSeviyeID <> @DersSeviyeID
     BEGIN
-        RAISERROR(N'Hata: Kayıtlı olduğunuz kurum dışındaki derslerden sınav olamazsınız.', 16, 1);
+        RAISERROR(N'Hata: Sadece kayıtlı olduğunuz eğitim seviyesine (sınıf) ait derslerden sınav olabilirsiniz.', 16, 1);
         RETURN;
     END
-   -- #1. Handle Single vs Multi Topic inputs
-    DECLARE @SingleKonuID INT = NULL; -- Create a variable
+
+    -- 2. SETUP EXAM HEADER & VARIABLES
+    
+    -- Handle Single vs Multi Topic inputs
+    DECLARE @SingleKonuID INT = NULL; 
 
     -- Check if topic list exists AND doesn't contain commas
     IF @KonuListesi IS NOT NULL AND CHARINDEX(',', @KonuListesi) = 0
-        -- If it's a single topic like '5', convert to integer
         SET @SingleKonuID = CAST(@KonuListesi AS INT);
 
-    -- 2. Create the Exam Header
+    -- Create the Exam Header
     INSERT INTO TestOturum (KullaniciID, DersID, KonuID, ZorlukID, SoruSayisi, Sure, BaslaZaman)
     VALUES (@KullaniciID, @DersID, @SingleKonuID, @ZorlukID, @SoruSayisi, @SureDakika, GETDATE());
 
-    --Getting the last auto-generated OturumID
+    -- Getting the last auto-generated OturumID
     DECLARE @YeniOturumID INT = SCOPE_IDENTITY();
 
     -- 3. THE BALANCED SELECTION LOGIC
-    --Question Pool we select question randomly and fairly among each topic
-    ;WITH SoruHavuzu AS (  -- Create a temporary "virtual table"
+    
+    -- Calculate Counts (40% Easy, 40% Med, 20% Hard)
+    -- We assume standard integer rounding.
+    DECLARE @EasyCount   INT = @SoruSayisi * 40 / 100;
+    DECLARE @MediumCount INT = @SoruSayisi * 40 / 100;
+    -- The remainder goes to Hard to ensure Total matches exactly
+    DECLARE @HardCount   INT = @SoruSayisi - (@EasyCount + @MediumCount);
+
+    -- If a specific Difficulty is chosen, we override the counts to 100%
+    IF @ZorlukID IS NOT NULL 
+    BEGIN
+        IF @ZorlukID = 1 SET @EasyCount = @SoruSayisi; ELSE SET @EasyCount = 0;
+        IF @ZorlukID = 2 SET @MediumCount = @SoruSayisi; ELSE SET @MediumCount = 0;
+        IF @ZorlukID = 3 SET @HardCount = @SoruSayisi; ELSE SET @HardCount = 0;
+    END;
+
+    -- CTE: Filter Valid Questions First
+    WITH SoruHavuzu AS (
         SELECT 
             S.SoruID,
             S.KonuID,
-            -- Assign a random rank INSIDE each topic (Partition By Konu)
-            -- This acts like shuffling(mixing) a deck of cards for EACH topic separately.
-            -- i.e gives each topic’s questions a random sequence number, which allows you to pick the first X questions per topic.
-            ROW_NUMBER() OVER (PARTITION BY S.KonuID ORDER BY NEWID()) AS DagilimSira
+            S.ZorlukID,
+            /* PARTITION BY S.KonuID
+            “Restart numbering for each topic.”
+            ORDER BY NEWID()
+            “Shuffle questions inside each topic randomly.”
+            ROW_NUMBER()
+            “Give each question a position after shuffling.”*/
+            -- Rank randomly INSIDE each Topic+Difficulty group
+            -- This ensures that if we pick 4 Easy questions, we prioritize getting them from DIFFERENT topics first.
+            ROW_NUMBER() OVER (PARTITION BY S.ZorlukID, S.KonuID ORDER BY NEWID()) AS DagilimSira
         FROM Soru S
-        INNER JOIN Konu K ON S.KonuID = K.KonuID   -- Link questions to topics
+        INNER JOIN Konu K ON S.KonuID = K.KonuID
         WHERE 
             K.DersID = @DersID 
-            AND (
-                @KonuListesi IS NULL -- If no topic list, include ALL
-                OR 
-                S.KonuID IN (SELECT value FROM STRING_SPLIT(@KonuListesi, ','))
-            )
-            AND (@ZorlukID IS NULL OR S.ZorlukID = @ZorlukID) -- Difficulty filter (optional)
-            AND S.SilinmeTarihi IS NULL --Exclude deleted questions
+            AND (@KonuListesi IS NULL OR S.KonuID IN (SELECT value FROM STRING_SPLIT(@KonuListesi, ',')))
+            AND S.SilinmeTarihi IS NULL 
             AND K.SilinmeTarihi IS NULL
     ),
     SecilenSorular AS (
-        -- Step B: Pick the Top X questions based on Fairness
-        -- We do NOT shuffle SoruSira here yet.
-        SELECT TOP (@SoruSayisi) SoruID
+        -- Step A: Pick Easy Questions (Fairly distributed by topic)
+        SELECT TOP (@EasyCount) SoruID
         FROM SoruHavuzu
-        ORDER BY DagilimSira -- <--- This ensures we pick Round 1 from all topics, then Round 2...
+        WHERE ZorlukID = 1
+        ORDER BY DagilimSira -- Pick Rank 1s (1st q from Topic A, 1st from Topic B) before Rank 2s
+
+        UNION ALL
+
+        -- Step B: Pick Medium Questions
+        SELECT TOP (@MediumCount) SoruID
+        FROM SoruHavuzu
+        WHERE ZorlukID = 2
+        ORDER BY DagilimSira
+
+        UNION ALL
+
+        -- Step C: Pick Hard Questions
+        SELECT TOP (@HardCount) SoruID
+        FROM SoruHavuzu
+        WHERE ZorlukID = 3
+        ORDER BY DagilimSira
     )
-    -- Step C: Insert and Shuffle the Display Order (1 to N)
+    -- Step D: Insert and Shuffle the Final Display Order (1 to N)
     INSERT INTO KullaniciTestSoru (OturumID, SoruID, SoruSira)
     SELECT 
         @YeniOturumID,
         SoruID,
-        -- Final Shuffle: We picked balanced questions, now we shuffle their display order
-        -- so the student doesn't see question topics align as in their textebooks( it can change to integration Q - differentiation Q)
-        ROW_NUMBER() OVER (ORDER BY NEWID()) -- <--- Now it generates 1..N on the SELECTED rows only
+        ROW_NUMBER() OVER (ORDER BY NEWID()) -- Shuffle the final mix so Easy/Hard aren't grouped together
     FROM SecilenSorular;
 
     -- 4. Return the ID
-    SELECT @YeniOturumID AS ExamID;  -- Send back the exam ID to the caller
+    SELECT @YeniOturumID AS ExamID;  
 END
 GO
 -- =====================================================
@@ -241,7 +339,7 @@ BEGIN
         S.SoruID,
         S.SoruMetin,
         
-        -- Option Data (The "Many" side)
+        --This order is very important for the dapper because it splits on SecenekID
         SS.SecenekID,
         SS.SecenekMetin
         -- NOTE: We do NOT select 'DogruMu'. 
@@ -256,8 +354,6 @@ BEGIN
         KTS.SoruSira ASC, -- Show questions in the random order we generated earlier
         SS.SecenekID ASC; -- Order options consistently
 END
-GO
-USE TestBankasi;
 GO
 
 -- ==============================================================
@@ -327,7 +423,7 @@ BEGIN
         BitirZaman = GETDATE()
     WHERE OturumID = @OturumID;
 
-    -- 4. Return the Result to the App (So it can show a "Congratulations" screen)
+    -- 4. Return the Result to the App 
     SELECT 
         @OturumID AS OturumID,
         @DogruSayisi AS Dogru,
@@ -336,64 +432,7 @@ BEGIN
         GETDATE() AS BitirZaman;
 END
 GO
--- =====================================================
--- Procedure 3: Returns all the questions under a 
--- particular lesson and/or topic
--- =====================================================
-CREATE PROCEDURE sp_SorulariListele
-    @DersID INT,          -- Mandatory: Teacher MUST select a lesson first
-    @KonuID INT = NULL    -- Optional: If NULL, show all topics in that lesson
-AS
-BEGIN
-    SET NOCOUNT ON;
 
-    SELECT 
-        S.SoruID,
-        S.SoruMetin,
-        K.KonuAdi,
-        Z.ZorlukAdi,
-        S.SilinmeTarihi
-    FROM Soru S
-    INNER JOIN Konu K ON S.KonuID = K.KonuID
-    INNER JOIN ZorlukSeviye Z ON S.ZorlukID = Z.ZorlukID
-    WHERE 
-        K.DersID = @DersID -- Filter by Lesson
-        AND (@KonuID IS NULL OR S.KonuID = @KonuID) -- Filter by Topic (if selected)
-    ORDER BY S.SoruID DESC;
-END
-GO
-
-CREATE PROCEDURE sp_SoruDetayGetir
-    @SoruID INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    SELECT 
-        S.SoruID, 
-        S.SoruMetin, 
-        S.KonuID, 
-        K.DersID, -- Critical: We need this to select the right Lesson in the dropdown
-        S.ZorlukID,
-        
-        -- Options columns (The "Many" side)
-        SS.SecenekID, 
-        SS.SecenekMetin, 
-        SS.DogruMu
-    FROM Soru S
-    INNER JOIN Konu K ON S.KonuID = K.KonuID -- Join to get the Lesson ID
-    INNER JOIN SoruSecenek SS ON S.SoruID = SS.SoruID
-    WHERE S.SoruID = @SoruID;
-END
-GO
-
-CREATE PROCEDURE sp_ZorlukSeviyeleriGetir
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SELECT ZorlukID, ZorlukAdi FROM ZorlukSeviye;
-END
-GO
 -- =====================================================
 -- Procedure 4: Creating questions
 -- =====================================================
@@ -409,14 +448,13 @@ BEGIN
 
     -- 1. Security Gatekeeper
     DECLARE @IsAuthorized INT;
-    EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID, N'Soru Ekleme';
+    EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID;
     IF @IsAuthorized <> 1 RETURN;
 
-    -- 2. VALIDATION BEFORE STARTING (Fail Fast)
-    -- Check if JSON is valid
+    -- 2. VALIDATION CHECKS IF JSON IS VALID
     IF ISJSON(@SeceneklerJSON) = 0
     BEGIN
-        RAISERROR(N'Hata: Geçersiz JSON formatı.', 16, 1);
+        RAISERROR(N'Hata: Geçersiz JSON formatı.', 16, 2);
         RETURN;
     END
 
@@ -431,7 +469,7 @@ BEGIN
         DECLARE @YeniSoruID INT = SCOPE_IDENTITY();
 
         -- B. Insert Options using OPENJSON
-        -- This maps the JSON keys "Icerik" and "DogruMu" to our table columns
+        -- This maps the JSON keys "SecenekMetin" and "DogruMu" to our table columns
         INSERT INTO SoruSecenek (SoruID, SecenekMetin, DogruMu)
         SELECT 
             @YeniSoruID, 
@@ -446,21 +484,21 @@ BEGIN
         -- C. LOGICAL VALIDATION (The "Business Rules")
         
         -- Rule 1: Must have at least 2 options
-        DECLARE @OptionCount INT;
-        SELECT @OptionCount = COUNT(*) FROM SoruSecenek WHERE SoruID = @YeniSoruID;
+        DECLARE @SecenekSayisi INT;
+        SELECT @SecenekSayisi = COUNT(*) FROM SoruSecenek WHERE SoruID = @YeniSoruID;
         
-        IF @OptionCount < 2
+        IF @SecenekSayisi < 2
         BEGIN
-            RAISERROR(N'Hata: Bir soru en az 2 seçeneğe sahip olmalıdır.', 16, 1);
+            RAISERROR(N'Hata: Bir soru en az 2 seçeneğe sahip olmalıdır.', 16, 3);
         END
 
         -- Rule 2: Must have EXACTLY ONE correct answer
-        DECLARE @CorrectCount INT;
-        SELECT @CorrectCount = COUNT(*) FROM SoruSecenek WHERE SoruID = @YeniSoruID AND DogruMu = 1;
+        DECLARE @DogruSayisi INT;
+        SELECT @DogruSayisi = COUNT(*) FROM SoruSecenek WHERE SoruID = @YeniSoruID AND DogruMu = 1;
 
-        IF @CorrectCount <> 1
+        IF @DogruSayisi <> 1
         BEGIN
-            RAISERROR(N'Hata: Sorunun tam olarak 1 doğru cevabı olmalıdır.', 16, 1);
+            RAISERROR(N'Hata: Sorunun tam olarak 1 doğru cevabı olmalıdır.', 16, 3);
         END
 
         -- If we survived all errors, commit the changes!
@@ -478,12 +516,12 @@ BEGIN
 
         -- Tell the user what went wrong
         DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
-        RAISERROR(@ErrMsg, 16, 1);
+        RAISERROR(@ErrMsg, 16, 4);
     END CATCH
 END
 GO
 -- =====================================================
--- Procedure 4: Modifiying a question + Security gateways
+-- Procedure 5: Updating questions
 -- =====================================================
 CREATE PROCEDURE sp_SoruVeSecenekleriGuncelle
     @KullaniciID INT,
@@ -497,17 +535,23 @@ BEGIN
 
     -- 1. Security Check
     DECLARE @IsAuthorized INT;
-    EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID, N'Soru Düzenleme';
+    EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID;
     IF @IsAuthorized <> 1 RETURN;
 
     -- 2. Validate JSON
     IF ISJSON(@SeceneklerJSON) = 0
     BEGIN
-        RAISERROR(N'Hata: Geçersiz JSON formatı.', 16, 1);
+        RAISERROR(N'Hata: Geçersiz JSON formatı.', 16, 2);
         RETURN;
     END
 
-    -- 3. Start Transaction
+    -- 3. OPTIMIZATION: Capture the "Old" Correct Answer ID
+    DECLARE @EskiDogruCevapID INT;
+    SELECT @EskiDogruCevapID = SecenekID 
+    FROM SoruSecenek 
+    WHERE SoruID = @SoruID AND DogruMu = 1;
+
+    -- 4. Start Transaction
     BEGIN TRANSACTION;
 
     BEGIN TRY
@@ -533,49 +577,59 @@ BEGIN
         WHERE SS.SoruID = @SoruID; -- Safety: Ensure we only touch options for THIS question
 
         -- C. Validation: Ensure exactly ONE correct answer exists
-        DECLARE @CorrectCount INT;
-        SELECT @CorrectCount = COUNT(*) 
+        DECLARE @DogruSayisi INT;
+        SELECT @DogruSayisi = COUNT(*) 
         FROM SoruSecenek 
         WHERE SoruID = @SoruID AND DogruMu = 1 
           AND SilinmeTarihi IS NULL; -- Ignore deleted options
 
-        IF @CorrectCount <> 1
+        IF @DogruSayisi <> 1
         BEGIN
-            RAISERROR(N'Hata: Güncelleme sonrası sorunun tam olarak 1 doğru cevabı olmalıdır.', 16, 1);
+            RAISERROR(N'Hata: Güncelleme sonrası sorunun tam olarak 1 doğru cevabı olmalıdır.', 16, 3);
         END
 
-        -- ==================================================================================
+        -- 5. Capture the "New" Correct Answer ID
+        DECLARE @YeniDogruCevapID INT;
+        SELECT @YeniDogruCevapID = SecenekID 
+        FROM SoruSecenek 
+        WHERE SoruID = @SoruID AND DogruMu = 1;
+        
+
         -- D. THE RIPPLE EFFECT (Auto-Regrading)
         -- This logic hunts down old exams and fixes their scores based on the new "Truth"
-   
-        ;WITH EtkilenenSinavlar AS (
-            -- 1. Find all exams that contain THIS question
-            SELECT DISTINCT OturumID 
-            FROM KullaniciTestSoru 
-            WHERE SoruID = @SoruID
-        ),
-        YeniPuanlar AS (
-            -- 2. Recalculate scores for those exams using the NEW option statuses
-            SELECT 
-                KTS.OturumID,
-                -- Count total questions in that exam
-                COUNT(KTS.SoruID) AS TotalQuestions,
-                -- Count correct answers (using the updated SoruSecenek table)
-                SUM(CASE WHEN SS.DogruMu = 1 THEN 1 ELSE 0 END) AS CorrectCount
-            FROM KullaniciTestSoru KTS
-            INNER JOIN EtkilenenSinavlar EtS ON KTS.OturumID = EtS.OturumID -- Only look at affected exams
-            INNER JOIN SoruSecenek SS ON KTS.SecenekID = SS.SecenekID -- Join to see if chosen option is NOW correct
-            GROUP BY KTS.OturumID
-        )
-        -- 3. Apply the update to the Cache (TestOturum Table)
-        UPDATE T
-        SET T.Puan = CASE 
-                        WHEN YP.TotalQuestions = 0 THEN 0 
-                        ELSE (YP.CorrectCount * 100) / YP.TotalQuestions 
-                     END
-        FROM TestOturum T
-        INNER JOIN YeniPuanlar YP ON T.OturumID = YP.OturumID;
-        -- ==================================================================================
+
+        -- Here we check if the the question's correct answer was modify. If yes we recalculate scores
+        IF @EskiDogruCevapID <> @YeniDogruCevapID
+        BEGIN
+            ;WITH EtkilenenSinavlar AS (
+                -- A. Find all exams that contain THIS question
+                SELECT DISTINCT OturumID 
+                FROM KullaniciTestSoru 
+                WHERE SoruID = @SoruID
+            ),
+            YeniPuanlar AS (
+                -- B. Recalculate scores for those exams using the NEW option statuses
+                SELECT 
+                    KTS.OturumID,
+                    -- Count total questions in that exam
+                    COUNT(KTS.SoruID) AS TotalQuestions,
+                    -- Count correct answers (using the updated SoruSecenek table)
+                    SUM(CASE WHEN SS.DogruMu = 1 THEN 1 ELSE 0 END) AS DogruSayisi
+                FROM KullaniciTestSoru KTS
+                INNER JOIN EtkilenenSinavlar EtS ON KTS.OturumID = EtS.OturumID -- Only look at affected exams
+                INNER JOIN SoruSecenek SS ON KTS.SecenekID = SS.SecenekID -- Join to see if chosen option is NOW correct
+                GROUP BY KTS.OturumID
+            )
+            -- C. Apply the update to the Cache (TestOturum Table)
+            UPDATE T
+            SET T.Puan = CASE 
+                            WHEN YP.TotalQuestions = 0 THEN 0 
+                            ELSE (YP.DogruSayisi * 100) / YP.TotalQuestions 
+                         END
+            FROM TestOturum T
+            INNER JOIN YeniPuanlar YP ON T.OturumID = YP.OturumID;
+        END
+         -- ==================================================================================
         -- If logic passes, save it.
         COMMIT TRANSACTION;
     END TRY
@@ -584,11 +638,14 @@ BEGIN
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
         
         DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
-        RAISERROR(@ErrMsg, 16, 1);
+        RAISERROR(@ErrMsg, 16, 4);
     END CATCH
 END
 GO
 
+-- =====================================================
+-- Procedure 6: Updating questions
+-- =====================================================
 CREATE PROCEDURE sp_SoruSil
     @KullaniciID INT,
     @SoruID INT
@@ -597,7 +654,7 @@ BEGIN
     SET NOCOUNT ON;
 
     DECLARE @IsAuthorized INT;
-    EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID, N'Soru Silme';
+    EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID;
 
     IF @IsAuthorized <> 1 RETURN;
 
@@ -606,7 +663,6 @@ BEGIN
     WHERE SoruID = @SoruID 
       AND SilinmeTarihi IS NULL; -- Only update if it's NOT already deleted
 
-    -- 3. CHECK THE SCOREBOARD
     -- @@ROWCOUNT is a system variable that tells us how many rows the last command touched.
     IF @@ROWCOUNT = 0
     BEGIN
@@ -614,17 +670,17 @@ BEGIN
         -- A) The ID doesn't exist
         -- B) It was already deleted (SilinmeTarihi was not null)
         
-        -- Optional: Now we can do a quick check to see WHICH one it was, strictly for the error message.
+        -- Optional: Now we can do a quick check to see WHICH one it was
         IF EXISTS (SELECT 1 FROM Soru WHERE SoruID = @SoruID)
-             RAISERROR(N'Bilgi: Soru zaten silinmiş.', 16, 1);
+             RAISERROR(N'Bilgi: Soru zaten silinmiş.', 16, 5);
         ELSE
-             RAISERROR(N'Hata: Soru bulunamadı.', 16, 1);
+             RAISERROR(N'Hata: Soru bulunamadı.', 16, 5);
     END
 END
 GO
 
 -- =====================================================
--- Procedure 4: Restore Question
+-- Procedure 7: Restore Question
 -- =====================================================
 CREATE PROCEDURE sp_SoruGeriYukle
     @KullaniciID INT,
@@ -635,7 +691,7 @@ BEGIN
 
     -- 1. SECURITY (Gatekeeper)
     DECLARE @IsAuthorized INT;
-    EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID, N'Soru Geri Yükleme';
+    EXEC @IsAuthorized = sp_YetkiKontrol @KullaniciID;
     
     IF @IsAuthorized <> 1 RETURN;
 
@@ -650,16 +706,17 @@ BEGIN
     BEGIN
         -- If we failed, figure out why (for the user's sake)
         IF NOT EXISTS (SELECT 1 FROM Soru WHERE SoruID = @SoruID)
-            RAISERROR(N'Hata: Soru bulunamadı.', 16, 1);
+            RAISERROR(N'Hata: Soru bulunamadı.', 16, 5);
         ELSE
             -- It exists, so it must have been active already.
-            RAISERROR(N'Bilgi: Bu soru zaten aktif (silinmemiş).', 16, 1);
+            RAISERROR(N'Bilgi: Bu soru zaten aktif (silinmemiş).', 16, 5);
     END
 END
-
-
-
-CREATE PROCEDURE sp_ReviewExam
+GO
+-- =====================================================
+-- Procedure 8: Historical Analysis
+-- =====================================================
+CREATE PROCEDURE sp_GozdenGecirmeSinavi
     @OturumID INT
 AS
 BEGIN
@@ -676,13 +733,13 @@ BEGIN
         -- Option Info
         SS.SecenekID,
         SS.SecenekMetin,
-        SS.DogruMu AS IsCorrect, -- Reveals the truth (1 or 0)
+        SS.DogruMu AS DogruMu, -- Reveals the truth (1 or 0)
         
         -- User Interaction
         CASE 
             WHEN KTS.SecenekID = SS.SecenekID THEN 1 
             ELSE 0 
-        END AS IsSelected -- Flags the option the user clicked
+        END AS VerilenCevap -- Flags the option the user clicked
         
     FROM KullaniciTestSoru KTS
     INNER JOIN Soru S ON KTS.SoruID = S.SoruID
@@ -692,6 +749,4 @@ BEGIN
     WHERE KTS.OturumID = @OturumID
     ORDER BY KTS.SoruSira, SS.SecenekID;
 END
-GO
-
-    
+GO 

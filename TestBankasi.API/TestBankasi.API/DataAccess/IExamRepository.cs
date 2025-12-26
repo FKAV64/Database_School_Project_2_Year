@@ -4,6 +4,7 @@ namespace TestBankasi.API.DataAccess
 {
     public interface IExamRepository
     {
+        // The contract: "I promise to return a list of lessons"
         Task<IEnumerable<LessonDTO>> GetLessonsByLevelAsync(int seviyeId);
         Task<IEnumerable<TopicDTO>> GetTopicsByLessonAsync(int dersId);
 

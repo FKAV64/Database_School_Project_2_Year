@@ -38,8 +38,8 @@ const QuestionEditor = () => {
             // A. Fetch Static Dictionaries (Lessons & Difficulties)
             // Promise.all runs both requests at the same time (Faster!)
             const [lessRes, diffRes] = await Promise.all([
-                axios.get("http://localhost:5143/api/exam/lessons", { headers }),
-                axios.get("http://localhost:5143/api/question/difficultyLevels", { headers })
+                axios.get("https://localhost:7125/api/exam/lessons", { headers }),
+                axios.get("https://localhost:7125/api/question/difficultyLevels", { headers })
             ]);
 
             setLessons(lessRes.data);
@@ -47,7 +47,7 @@ const QuestionEditor = () => {
 
             // B. IF EDITING: Fetch the Question & Sync Logic
             if (isEditing) {
-                const qRes = await axios.get(`http://localhost:5143/api/question/${id}`, { headers });
+                const qRes = await axios.get(`https://localhost:7125/api/question/${id}`, { headers });
                 const q = qRes.data;
 
                 // 1. Fill basic fields
@@ -84,7 +84,7 @@ const QuestionEditor = () => {
       if(!dersId) { setTopics([]); return; }
       try {
           const token = tokenArg || localStorage.getItem("token");
-          const response = await axios.get(`http://localhost:5143/api/exam/topics/${dersId}`, {
+          const response = await axios.get(`https://localhost:7125/api/exam/topics/${dersId}`, {
               headers: { Authorization: `Bearer ${token}` }
           });
           setTopics(response.data);
@@ -145,7 +145,7 @@ const QuestionEditor = () => {
                   // Send options exactly as they are (ID is included if editing)
                   Secenekler: options 
               };
-              await axios.put("http://localhost:5143/api/question/update", payload, { headers });
+              await axios.put("https://localhost:7125/api/question/update", payload, { headers });
               alert("Question Updated Successfully!");
           } else {
               // --- CREATE MODE (POST) ---
@@ -156,7 +156,7 @@ const QuestionEditor = () => {
                   // Strip out IDs (if any existed) because creating new options doesn't need IDs
                   Secenekler: options.map(o => ({ SecenekMetin: o.secenekMetin, DogruMu: o.dogruMu })) 
               };
-              await axios.post("http://localhost:5143/api/question/add", payload, { headers });
+              await axios.post("https://localhost:7125/api/question/add", payload, { headers });
               alert("New Question Created!");
           }
           // Redirect back to list

@@ -8,7 +8,7 @@ using TestBankasi.API.DataAccess;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllers();
 
 // 1. HELPER FOR API DISCOVERY
 // This allows .NET to find all your endpoints (Controllers) so they can be listed.
@@ -53,13 +53,13 @@ builder.Services.AddSwaggerGen(c =>
 // ==============================================================================
 // ALLOW FRONTEND (CORS)(Cross-Origin Resource Sharing)
 // ==============================================================================
-// ALLOW FRONTEND (CORS)
+// ALLOW FRONTEND (CORS): It is a security policy that allows the frontend to communicate with backend
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",
         builder =>
         {
-            builder.WithOrigins("http://localhost:5173") // <--- The URL React will run on
+            builder.WithOrigins("https://localhost:5173") // <--- The URL React will run on
                    .AllowAnyMethod()
                    .AllowAnyHeader();
         });
@@ -119,23 +119,20 @@ if (app.Environment.IsDevelopment())
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 //app.UseHttpsRedirection(); // Force http:// to become https://
-app.UseStaticFiles();
 
 app.UseRouting(); // Figure out which Controller the user is asking for
 
-app.UseCors("AllowReactApp");
+app.UseCors("AllowReactApp"); // Enabling the cors policy
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+// This tells .NET to only look for [Route("api/...")] attributes.
+app.MapControllers();
 
 app.Run(); //start engin

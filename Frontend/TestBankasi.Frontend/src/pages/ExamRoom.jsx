@@ -89,7 +89,7 @@ const ExamRoom = () => {
     try {
         const token = localStorage.getItem("token");
         // NOTE: Ensure Port 5143 (HTTP)
-        await axios.post("http://localhost:5143/api/Exam/submit", payload, {
+        await axios.post("https://localhost:7125/api/Exam/submit", payload, {
             headers: { Authorization: `Bearer ${token}` }
         });
 

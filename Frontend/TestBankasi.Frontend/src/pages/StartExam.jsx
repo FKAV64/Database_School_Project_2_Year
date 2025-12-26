@@ -23,8 +23,7 @@ const StartExam = () => {
       try {
         const token = localStorage.getItem("token");
         // Use the new endpoint we just created
-        // NOTE: Ensure your API is running on HTTP 5143
-        const response = await axios.get("http://localhost:5143/api/Exam/lessons", {
+        const response = await axios.get("https://localhost:7125/api/Exam/lessons", {
           headers: { Authorization: `Bearer ${token}` }
         });
         setLessons(response.data);
@@ -49,7 +48,7 @@ const StartExam = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(`http://localhost:5143/api/Exam/topics/${lessonId}`, {
+      const response = await axios.get(`https://localhost:7125/api/Exam/topics/${lessonId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTopics(response.data);
@@ -93,7 +92,7 @@ const StartExam = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.post("http://localhost:5143/api/Exam/start", payload, {
+      const response = await axios.post("https://localhost:7125/api/Exam/start", payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

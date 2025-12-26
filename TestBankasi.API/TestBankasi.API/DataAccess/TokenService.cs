@@ -23,7 +23,7 @@ namespace TestBankasi.API.DataAccess
         public string CreateToken(User user)
         {
             // 2. Create "Claims" (The info written ON the badge)
-            // We store the ID, Name, and Role inside the token so we don't need to ask the DB later.
+            // We store the ID, Name, and Role, level of education inside the token so we don't need to ask the DB later.
 
             var claims = new List<Claim>
             {

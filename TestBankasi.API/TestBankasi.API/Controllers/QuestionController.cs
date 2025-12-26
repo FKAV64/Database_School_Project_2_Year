@@ -16,9 +16,10 @@ namespace TestBankasi.API.Controllers
         {
             _questionRepo = questionRepo;
         }
-
+        // returns a list of questions of a particular dersid
         [HttpGet("list")]
         [Authorize(Roles = "Admin,Ogretmen")]
+        //Do not look for this data inside the JSON body. Look for it right there in the URL address bar(https://localhost:7125/api/questions?dersId=5&konuId=12)
         public async Task<IActionResult> GetQuestions([FromQuery] int dersId, [FromQuery] int? konuId)
         {
             // Validation: Teacher must select at least a Lesson
@@ -27,7 +28,7 @@ namespace TestBankasi.API.Controllers
             var list = await _questionRepo.GetQuestionsByFilterAsync(dersId, konuId);
             return Ok(list);
         }
-
+        // Gets questions + options of a particular dersid
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin,Ogretmen")]
         public async Task<IActionResult> GetQuestionDetail(int id)
@@ -47,7 +48,7 @@ namespace TestBankasi.API.Controllers
             var list = await _questionRepo.GetDifficultyLevelsAsync();
             return Ok(list);
         }
-
+        // Adding new question to the db
         [HttpPost("add")]
         [Authorize(Roles = "Admin,Ogretmen")] // Only Admin or Teacher can add questions
         public async Task<IActionResult> AddQuestion([FromBody] QuestionCreateDTO questionDto)
@@ -77,6 +78,7 @@ namespace TestBankasi.API.Controllers
         }
         // ... (Inside QuestionController Class) ...
 
+        // updat existing question
         [HttpPut("update")]
         [Authorize(Roles = "Admin,Ogretmen")]
         public async Task<IActionResult> UpdateQuestion([FromBody] QuestionUpdateDTO questionDto)

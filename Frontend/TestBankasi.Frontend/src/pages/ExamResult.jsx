@@ -13,7 +13,7 @@ const ExamResult = () => {
       try {
         const token = localStorage.getItem("token");
         // CALL THE NEW ENDPOINT
-        const response = await axios.get(`http://localhost:5143/api/Exam/result-summary/${oturumId}`, {
+        const response = await axios.get(`https://localhost:7125/api/Exam/result-summary/${oturumId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setResult(response.data);

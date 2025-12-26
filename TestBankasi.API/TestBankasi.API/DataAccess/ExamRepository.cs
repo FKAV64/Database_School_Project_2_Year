@@ -15,15 +15,16 @@ namespace TestBankasi.API.DataAccess
         {
             _context = context;
         }
-
+        // This means: "I promise (Task) to give you a Read-Only List (IEnumerable) of Lessons."
         public async Task<IEnumerable<LessonDTO>> GetLessonsByLevelAsync(int seviyeId)
         {
             using (var connection = _context.CreateConnection())
             {
+                // QueryAsync return a list/collection of lessons
                 return await connection.QueryAsync<LessonDTO>(
                     "sp_DersleriGetir", 
                     new { SeviyeID = seviyeId },
-                    commandType: CommandType.StoredProcedure // <--- Strict Mode
+                    commandType: CommandType.StoredProcedure
                 );
             }
         }
@@ -46,9 +47,6 @@ namespace TestBankasi.API.DataAccess
             var parameters = new DynamicParameters();
             parameters.Add("KullaniciID", KullaniciId);
             parameters.Add("DersID", DersId);
-
-            // Hardcoded to NULL for now (General Exam logic)
-            // Later we will let the user choose specific Konular
 
             // LOGIC: Convert List<string> to "1,2,3" string for SQL
             // If list is null or empty, send NULL to SQL (which means "All Topics")
@@ -74,16 +72,13 @@ namespace TestBankasi.API.DataAccess
                 );
 
                 // PART B: Fetches the Questions 
-                var sql = "sp_OturumSorulariniGetir";
-                var getParams = new DynamicParameters();
-                getParams.Add("OturumID", examSessionId);
 
                 // Dictionary to track distinct Questions so we don't create duplicates
                 var questionDictionary = new Dictionary<int, ExamQuestionDTO>();
 
-                // Dapper Logic: Map <Question, Option, Result>
+                // Dapper Logic: Multiple Map "Input, Input, Output"
                 var list = await connection.QueryAsync<ExamQuestionDTO, ExamOptionDTO, ExamQuestionDTO>(
-                    sql,
+                    "sp_OturumSorulariniGetir",
                     (question, option) =>
                     {
                         // 1. Check if we already created this Question object
@@ -101,9 +96,9 @@ namespace TestBankasi.API.DataAccess
                             questionEntry.Secenekler.Add(option);
                         }
 
-                        return questionEntry;
+                        return questionEntry; //Actually useless but required for syntax because all is being store in the dict
                     },
-                    getParams,
+                    new { OturumID = examSessionId },
                     splitOn: "SecenekID", // <--- The Border between Question columns and Option columns
                     commandType: CommandType.StoredProcedure
                 );
@@ -114,13 +109,10 @@ namespace TestBankasi.API.DataAccess
         }
         public async Task<ExamResultDTO> SubmitExamAsync(SubmitExamDTO submission, int userId)
         {
-            // OPEN CONNECTION ONCE
             using (var connection = _context.CreateConnection())
             {
                 connection.Open();
-
-                // 1. SECURITY CHECK (Via Stored Procedure)
-                // We now call sp_OturumSahibiKontrol instead of writing SELECT * FROM...
+                //Dapper method used when you expect your SQL query to return exactly one single value
                 var isOwner = await connection.ExecuteScalarAsync<int>(
                     "sp_OturumSahibiKontrol",
                     new { OturumID = submission.OturumID, KullaniciID = userId },
@@ -132,7 +124,7 @@ namespace TestBankasi.API.DataAccess
                     throw new UnauthorizedAccessException("Bu sınav oturumu size ait değil!");
                 }
 
-                // 2. TRANSACTION (Save Answers)
+                // TRANSACTION (Save Answers)
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
@@ -173,7 +165,6 @@ namespace TestBankasi.API.DataAccess
         }
         public async Task<IEnumerable<ExamHistoryDTO>> GetStudentHistoryAsync(int kullaniciId)
         {
-            // READABILITY WIN: We use @KullaniciID so it is obvious what the parameter is.
             var query = "SELECT * FROM View_OturumOzet WHERE KullaniciID = @KullaniciID ORDER BY BaslaZaman DESC";
 
             using (var connection = _context.CreateConnection())
@@ -203,7 +194,7 @@ namespace TestBankasi.API.DataAccess
         }
         public async Task<IEnumerable<ReviewQuestionDTO>> GetReviewDetailsAsync(int oturumId)
         {
-            var procedure = "sp_ReviewExam";
+            var procedure = "sp_GozdenGecirmeSinavi";
             var dictionary = new Dictionary<int, ReviewQuestionDTO>();
 
             using (var connection = _context.CreateConnection())

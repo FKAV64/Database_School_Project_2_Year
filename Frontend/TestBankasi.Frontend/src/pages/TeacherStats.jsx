@@ -19,7 +19,7 @@ const TeacherStats = () => {
       const fetchLessons = async () => {
           try {
               const token = localStorage.getItem("token");
-              const response = await axios.get("http://localhost:5143/api/Exam/lessons", {
+              const response = await axios.get("https://localhost:7125/api/Exam/lessons", {
                   headers: { Authorization: `Bearer ${token}` }
               });
               setLessons(response.data);
@@ -40,7 +40,7 @@ const TeacherStats = () => {
         const token = localStorage.getItem("token");
         const headers = { Authorization: `Bearer ${token}` };
         
-        let baseUrl = "http://localhost:5143/api/Stats/dashboard";
+        let baseUrl = "https://localhost:7125/api/Stats/dashboard";
         let endpoint = "";
 
         if (activeTab === "TOPICS") endpoint = "/preferred-topics";

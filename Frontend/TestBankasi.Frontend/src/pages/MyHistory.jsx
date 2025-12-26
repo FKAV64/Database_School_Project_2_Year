@@ -13,7 +13,7 @@ const MyHistory = () => {
       try {
         const token = localStorage.getItem("token");
         // CALLING THE API (Port 5143 HTTP)
-        const response = await axios.get("http://localhost:5143/api/Exam/my-history", {
+        const response = await axios.get("https://localhost:7125/api/Exam/my-history", {
           headers: { Authorization: `Bearer ${token}` }
         });
         
