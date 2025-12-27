@@ -6,6 +6,8 @@ namespace TestBankasi.API.Models.DTOs
     {
         [Required]
         [EmailAddress]
+        // ⚠️ NEW: This Regex enforces "text" + "@" + "text" + "." + "text"
+        [RegularExpression(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", ErrorMessage = "Email must contain a valid domain (e.g., .com, .net).")]
         public string Email { get; set; }
 
         [Required]

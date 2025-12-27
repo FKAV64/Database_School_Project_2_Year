@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/api";
 
 const ExamResult = () => {
   const { oturumId } = useParams();
@@ -11,11 +11,8 @@ const ExamResult = () => {
   useEffect(() => {
     const fetchResult = async () => {
       try {
-        const token = localStorage.getItem("token");
         // CALL THE NEW ENDPOINT
-        const response = await axios.get(`https://localhost:7125/api/Exam/result-summary/${oturumId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get(`Exam/result-summary/${oturumId}`);
         setResult(response.data);
       } catch (err) {
         console.error(err);

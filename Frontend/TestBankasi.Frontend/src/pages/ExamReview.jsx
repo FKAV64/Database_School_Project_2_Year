@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/api";
 
 const ExamReview = () => {
   const { oturumId } = useParams(); // Grabs the ID from the URL
@@ -11,11 +11,8 @@ const ExamReview = () => {
   useEffect(() => {
     const fetchReview = async () => {
       try {
-        const token = localStorage.getItem("token");
         // Ensure Port 5143 (HTTP)
-        const response = await axios.get(`https://localhost:7125/api/Exam/review-details/${oturumId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get(`Exam/review-details/${oturumId}`);
         setQuestions(response.data);
       } catch (err) {
         console.error(err);

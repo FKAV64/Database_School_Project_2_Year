@@ -55,7 +55,6 @@ SELECT
     ES.SeviyeAdi,
     T.KullaniciID,
     Kullanici.Ad + ' ' + Kullanici.Soyad AS OgrenciIsim,
-    T.OturumID,
     D.DersID,
     D.DersAdi,
     K.KonuAdi, 
@@ -74,7 +73,7 @@ SELECT
     END AS BasariYuzdesi
     
 
-FROM KullaniciTestSoru KTS
+FROM KullaniciTestSoru KTS (NOLOCK)
     INNER JOIN TestOturum T ON KTS.OturumID = T.OturumID
     INNER JOIN Kullanici ON T.KullaniciID = Kullanici.KullaniciID
     INNER JOIN Soru S ON KTS.SoruID = S.SoruID
@@ -91,7 +90,6 @@ GROUP BY
     T.KullaniciID, 
     Kullanici.Ad, 
     Kullanici.Soyad,
-    T.OturumID,
     D.DersID,
     D.DersAdi,
     K.KonuAdi,

@@ -1,6 +1,6 @@
-// src/pages/Login.jsx
 import { useState } from "react";
-import axios from "axios";
+//import axios from "axios";
+import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 
 const Login = () => {
@@ -26,8 +26,7 @@ const Login = () => {
       // THE API CALL
       // We are calling the C# Endpoint: [HttpPost("login")]
       // Payload matches UserLoginDTO: { Email: "...", Sifre: "..." }
-      // NOTE: Replace '5143' with your actual API port if different!
-      const response = await axios.post("https://localhost:7125/api/auth/login", {
+      const response = await api.post("auth/login", {
         Email: email,
         Sifre: password,
       });
@@ -55,7 +54,7 @@ const Login = () => {
 
     } catch (err) {
       // IF FAILURE (Code 401, 500, etc):
-      console.error("Login Failed:", err);
+      //console.error("Login Failed:", err);
       setError("Invalid email or password.");
     }
   };

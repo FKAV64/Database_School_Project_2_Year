@@ -1,6 +1,6 @@
 // src/pages/StartExam.jsx
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 
 const StartExam = () => {
@@ -21,11 +21,7 @@ const StartExam = () => {
   useEffect(() => {
     const fetchLessons = async () => {
       try {
-        const token = localStorage.getItem("token");
-        // Use the new endpoint we just created
-        const response = await axios.get("https://localhost:7125/api/Exam/lessons", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get("/Exam/lessons");
         setLessons(response.data);
       } catch (err) {
         console.error("Failed to load lessons:", err);
@@ -47,10 +43,7 @@ const StartExam = () => {
     }
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get(`https://localhost:7125/api/Exam/topics/${lessonId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get(`/Exam/topics/${lessonId}`);
       setTopics(response.data);
     } catch (err) {
       console.error("Failed to load topics:", err);
@@ -91,10 +84,7 @@ const StartExam = () => {
     };
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post("https://localhost:7125/api/Exam/start", payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.post("/Exam/start", payload);
 
       // The API returns the list of questions immediately? 
       // OR does it return the Session ID? 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 
 const QuestionBank = () => {
@@ -21,11 +21,8 @@ const QuestionBank = () => {
   useEffect(() => {
     const fetchLessons = async () => {
       try {
-        const token = localStorage.getItem("token");
         // Reuse the endpoint we made for students (it works for teachers too!)
-        const response = await axios.get("https://localhost:7125/api/exam/lessons", {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get("/exam/lessons");
         setLessons(response.data);
       } catch (err) {
         console.error("Lesson fetch error:", err);
@@ -46,12 +43,9 @@ const QuestionBank = () => {
 
       setLoading(true);
       try {
-          const token = localStorage.getItem("token");
           
           // A. Fetch Topics for this Lesson
-          const topicRes = await axios.get(`https://localhost:7125/api/exam/topics/${lessonId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
+          const topicRes = await api.get(`/exam/topics/${lessonId}`);
           setTopics(topicRes.data);
 
           // B. Fetch All Questions for this Lesson (Default view)
@@ -80,15 +74,11 @@ const QuestionBank = () => {
   const fetchQuestions = async (lessonId, topicId) => {
       setLoading(true);
       try {
-          const token = localStorage.getItem("token");
-          
           // Build Query String: ?dersId=1&konuId=5
-          let url = `https://localhost:7125/api/question/list?dersId=${lessonId}`;
+          let url = `/question/list?dersId=${lessonId}`;
           if (topicId) url += `&konuId=${topicId}`;
 
-          const response = await axios.get(url, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
+          const response = await api.get(url);
           setQuestions(response.data);
       } catch (err) {
           console.error("Grid load error:", err);
@@ -101,10 +91,7 @@ const QuestionBank = () => {
   const handleDelete = async (id) => {
       if(!window.confirm("Delete this question?")) return;
       try {
-        const token = localStorage.getItem("token");
-        await axios.delete(`https://localhost:7125/api/question/delete/${id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.delete(`/question/delete/${id}`);
         // Optimistic UI Update (Remove from list without reload)
         setQuestions(prev => prev.map(q => q.soruID === id ? {...q, silinmeTarihi: new Date()} : q));
       } catch (err) {
@@ -114,10 +101,7 @@ const QuestionBank = () => {
 
   const handleRestore = async (id) => {
       try {
-        const token = localStorage.getItem("token");
-        await axios.patch(`https://localhost:7125/api/question/restore/${id}`, {}, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.patch(`/question/restore/${id}`);
         setQuestions(prev => prev.map(q => q.soruID === id ? {...q, silinmeTarihi: null} : q));
       } catch (err) {
           alert("Restore failed.");

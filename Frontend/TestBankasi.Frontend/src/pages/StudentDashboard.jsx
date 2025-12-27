@@ -6,22 +6,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState("");
 
-  // SECURITY CHECK: Run this immediately when the page loads
-  useEffect(() => {
-    // 1. Get the token from "The Pocket" (Local Storage)
-    const token = localStorage.getItem("token");
-
-    // 2. If no token, KICK THEM OUT
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
-    // 3. (Optional) We can decode the token here to get the Name/Role
-    // For now, we assume they are a student.
-    setUserRole("Student");
-    
-  }, [navigate]);
 
   // LOGOUT LOGIC
   const handleLogout = () => {

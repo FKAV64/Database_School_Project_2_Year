@@ -1,6 +1,6 @@
 // src/pages/MyHistory.jsx
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 
 const MyHistory = () => {
@@ -11,12 +11,8 @@ const MyHistory = () => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const token = localStorage.getItem("token");
         // CALLING THE API (Port 5143 HTTP)
-        const response = await axios.get("https://localhost:7125/api/Exam/my-history", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
+        const response = await api.get("/Exam/my-history");
         // Debugging: Check the casing in the console!
         //console.log("History Data:", response.data);
         

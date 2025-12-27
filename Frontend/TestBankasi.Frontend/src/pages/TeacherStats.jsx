@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 
 const TeacherStats = () => {
@@ -18,10 +18,7 @@ const TeacherStats = () => {
   useEffect(() => {
       const fetchLessons = async () => {
           try {
-              const token = localStorage.getItem("token");
-              const response = await axios.get("https://localhost:7125/api/Exam/lessons", {
-                  headers: { Authorization: `Bearer ${token}` }
-              });
+              const response = await api.get("/Exam/lessons");
               setLessons(response.data);
           } catch (err) {
               console.error("Lesson fetch error:", err);
@@ -37,10 +34,8 @@ const TeacherStats = () => {
       setData([]); 
       
       try {
-        const token = localStorage.getItem("token");
-        const headers = { Authorization: `Bearer ${token}` };
         
-        let baseUrl = "https://localhost:7125/api/Stats/dashboard";
+        let baseUrl = "/Stats/dashboard";
         let endpoint = "";
 
         if (activeTab === "TOPICS") endpoint = "/preferred-topics";
@@ -52,7 +47,7 @@ const TeacherStats = () => {
         // If selectedLesson is "", url becomes "...?dersId=" (API handles null)
         const url = `${baseUrl}${endpoint}?dersId=${selectedLesson}`;
 
-        const response = await axios.get(url, { headers });
+        const response = await api.get(url);
         setData(response.data);
 
       } catch (err) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 
 const MyPerformance = () => {
@@ -12,11 +12,8 @@ const MyPerformance = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem("token");
         // Ensure this matches your actual endpoint URL
-        const response = await axios.get("https://localhost:7125/api/stats/my-performance", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get("/stats/my-performance");
         setRawData(response.data);
       } catch (err) {
         console.error("Fetch error:", err);

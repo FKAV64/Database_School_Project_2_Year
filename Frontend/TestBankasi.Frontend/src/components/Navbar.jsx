@@ -27,7 +27,6 @@ const Navbar = () => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/"); // Refresh page or redirect to update UI
-    window.location.reload(); // Hard refresh to update the Navbar state (Simple fix for now)
   };
   return (
     // We use a semantic <nav> tag for accessibility.

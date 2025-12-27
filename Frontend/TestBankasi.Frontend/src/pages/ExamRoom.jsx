@@ -1,7 +1,7 @@
 // src/pages/ExamRoom.jsx
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/api";
 
 const ExamRoom = () => {
   const location = useLocation();
@@ -87,11 +87,7 @@ const ExamRoom = () => {
     //console.log("SUBMITTING EXAM:", JSON.stringify(payload, null, 2));
 
     try {
-        const token = localStorage.getItem("token");
-        // NOTE: Ensure Port 5143 (HTTP)
-        await axios.post("https://localhost:7125/api/Exam/submit", payload, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.post("/Exam/submit", payload);
 
         //alert("Exam Submitted Successfully!");
         navigate("/exam-result/" + payload.OturumID)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../utils/api";
 import { useParams, useNavigate } from "react-router-dom";
 
 const QuestionEditor = () => {
@@ -32,14 +32,11 @@ const QuestionEditor = () => {
   useEffect(() => {
     const initPage = async () => {
         try {
-            const token = localStorage.getItem("token");
-            const headers = { Authorization: `Bearer ${token}` };
-
             // A. Fetch Static Dictionaries (Lessons & Difficulties)
             // Promise.all runs both requests at the same time (Faster!)
             const [lessRes, diffRes] = await Promise.all([
-                axios.get("https://localhost:7125/api/exam/lessons", { headers }),
-                axios.get("https://localhost:7125/api/question/difficultyLevels", { headers })
+                api.get("/exam/lessons"),
+                api.get("/question/difficultyLevels")
             ]);
 
             setLessons(lessRes.data);
@@ -47,7 +44,7 @@ const QuestionEditor = () => {
 
             // B. IF EDITING: Fetch the Question & Sync Logic
             if (isEditing) {
-                const qRes = await axios.get(`https://localhost:7125/api/question/${id}`, { headers });
+                const qRes = await api.get(`/question/${id}`);
                 const q = qRes.data;
 
                 // 1. Fill basic fields
@@ -83,10 +80,7 @@ const QuestionEditor = () => {
   const fetchTopics = async (dersId, tokenArg) => {
       if(!dersId) { setTopics([]); return; }
       try {
-          const token = tokenArg || localStorage.getItem("token");
-          const response = await axios.get(`https://localhost:7125/api/exam/topics/${dersId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
+          const response = await api.get(`/exam/topics/${dersId}`);
           setTopics(response.data);
       } catch (err) { console.error(err); }
   };
@@ -132,9 +126,6 @@ const QuestionEditor = () => {
       const correctCount = options.filter(o => o.dogruMu).length;
       if (correctCount !== 1) { alert("Please mark exactly ONE correct answer."); return; }
 
-      const token = localStorage.getItem("token");
-      const headers = { Authorization: `Bearer ${token}` };
-
       try {
           if (isEditing) {
               // --- UPDATE MODE (PUT) ---
@@ -145,7 +136,7 @@ const QuestionEditor = () => {
                   // Send options exactly as they are (ID is included if editing)
                   Secenekler: options 
               };
-              await axios.put("https://localhost:7125/api/question/update", payload, { headers });
+              await api.put("/question/update", payload);
               alert("Question Updated Successfully!");
           } else {
               // --- CREATE MODE (POST) ---
@@ -156,7 +147,7 @@ const QuestionEditor = () => {
                   // Strip out IDs (if any existed) because creating new options doesn't need IDs
                   Secenekler: options.map(o => ({ SecenekMetin: o.secenekMetin, DogruMu: o.dogruMu })) 
               };
-              await axios.post("https://localhost:7125/api/question/add", payload, { headers });
+              await api.post("/question/add", payload);
               alert("New Question Created!");
           }
           // Redirect back to list
