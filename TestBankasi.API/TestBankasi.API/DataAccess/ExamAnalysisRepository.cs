@@ -37,7 +37,7 @@ namespace TestBankasi.API.DataAccess
         {
             //Ranking topics by preference
             var query = @"
-                SELECT KonuAdi, COUNT(*) AS YapilanSayisi
+                SELECT KonuAdi, SUM(ToplamSoru) AS YapilanSayisi
                 FROM View_DetayliPerformans
                 WHERE SeviyeID = @Sid AND (@Did IS NULL OR DersID = @Did)
                 GROUP BY KonuAdi
@@ -53,7 +53,9 @@ namespace TestBankasi.API.DataAccess
         {
             // Ranking topics by sucess rate
             var query = @"
-                SELECT KonuAdi, CAST(AVG(BasariYuzdesi*1.00) AS DECIMAL(5,2)) AS BasariOrani 
+                SELECT KonuAdi, CAST(
+                        (SUM(DogruSayisi) * 100.0) / NULLIF(SUM(ToplamSoru), 0) 
+                    AS DECIMAL(5,2)) AS BasariOrani
                 FROM View_DetayliPerformans
                 WHERE SeviyeID = @Sid AND (@Did IS NULL OR DersID = @Did)
                 GROUP BY KonuAdi
@@ -76,8 +78,9 @@ namespace TestBankasi.API.DataAccess
                     SELECT
                         KullaniciID,
                         OgrenciIsim,
-                        DersAdi,
-                        CAST(AVG(BasariYuzdesi * 1.00) AS DECIMAL(5, 2)) AS BasariOrani
+                        CAST(
+                        (SUM(DogruSayisi) * 100.0) / NULLIF(SUM(ToplamSoru), 0) 
+                        AS DECIMAL(5,2)) AS BasariOrani
                     FROM View_DetayliPerformans
                     WHERE SeviyeID = @Sid AND DersID = @Did
                     GROUP BY KullaniciID, OgrenciIsim, DersAdi
@@ -90,8 +93,9 @@ namespace TestBankasi.API.DataAccess
                     SELECT
                         KullaniciID,
                         OgrenciIsim,
-                        
-                        CAST(AVG(BasariYuzdesi*1.00) AS DECIMAL(5,2)) AS BasariOrani
+                        CAST(
+                        (SUM(DogruSayisi) * 100.0) / NULLIF(SUM(ToplamSoru), 0) 
+                        AS DECIMAL(5,2)) AS BasariOrani
                     FROM View_DetayliPerformans
                     WHERE SeviyeID = @Sid
                     GROUP BY KullaniciID, OgrenciIsim

@@ -170,7 +170,7 @@ const styles = {
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" },
   timer: { fontSize: "1.5rem", fontWeight: "bold" },
   card: { padding: "2rem", border: "1px solid #ddd", borderRadius: "8px", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" },
-  questionText: { fontSize: "1.2rem", marginBottom: "1.5rem" },
+  questionText: { fontSize: "1.2rem", marginBottom: "1.5rem", whiteSpace: "pre-wrap", lineHeight: "1.5" },
   optionsGrid: { display: "flex", flexDirection: "column", gap: "1rem" },
   option: { padding: "1rem", border: "2px solid #ddd", borderRadius: "6px", cursor: "pointer", fontSize: "1rem", transition: "all 0.2s" },
   footer: { display: "flex", justifyContent: "space-between", marginTop: "2rem" },

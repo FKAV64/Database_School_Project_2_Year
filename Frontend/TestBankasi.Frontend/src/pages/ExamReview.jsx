@@ -129,7 +129,9 @@ const styles = {
   },
   questionText: {
     fontSize: "1.1rem",
-    marginBottom: "1rem"
+    marginBottom: "1rem",
+    whiteSpace: "pre-wrap",
+    lineHeight: "1.5"
   },
   tagContainer: {
     display: "flex",
