@@ -1,8 +1,6 @@
-.vs/ 
-*.sln
-*.csproj
-bin/ 
+.vs/
+bin/
 obj/
 *.user
 *.suo
-/wwwroot/lib/
+wwwroot/
