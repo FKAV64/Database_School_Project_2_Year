@@ -4,3 +4,5 @@ obj/
 *.user
 *.suo
 wwwroot/
+appsettings.Development.json
+appsettings.Production.json
